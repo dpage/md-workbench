@@ -62,6 +62,12 @@ interface Preferences {
   openLinksInNewTab: boolean;
 }
 
+interface FolderEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+}
+
 interface StoreSchema {
   windowBounds: WindowBounds;
   openFiles: OpenFile[];
@@ -69,9 +75,12 @@ interface StoreSchema {
   theme: 'light' | 'dark' | 'system';
   preferences: Preferences;
   recentFiles: string[];
+  recentFolders: string[];
+  currentFolder: string | null;
 }
 
 const MAX_RECENT_FILES = 10;
+const MAX_RECENT_FOLDERS = 10;
 
 // Initialize store with defaults
 const store = new Store<StoreSchema>({
@@ -88,6 +97,8 @@ const store = new Store<StoreSchema>({
       openLinksInNewTab: false,
     },
     recentFiles: [],
+    recentFolders: [],
+    currentFolder: null,
   },
 });
 
@@ -223,6 +234,141 @@ function clearRecentFiles(): void {
   createMenu();
 }
 
+// Folder management functions
+function addToRecentFolders(folderPath: string): void {
+  const recentFolders = store.get('recentFolders');
+
+  // Remove the folder if it already exists (we'll add it to the front)
+  const filtered = recentFolders.filter((f) => f !== folderPath);
+
+  // Add to front and limit to max
+  const updated = [folderPath, ...filtered].slice(0, MAX_RECENT_FOLDERS);
+
+  store.set('recentFolders', updated);
+
+  // Rebuild menu to update recent folders list
+  createMenu();
+}
+
+function getFilteredRecentFolders(): string[] {
+  const recentFolders = store.get('recentFolders');
+  const currentFolder = store.get('currentFolder');
+
+  // Filter out non-existent folders and currently open folder
+  const filtered = recentFolders.filter((folderPath) => {
+    try {
+      if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+
+    // Skip if folder is currently open
+    if (folderPath === currentFolder) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // Update store if we removed any non-existent folders
+  const existingFolders = recentFolders.filter((folderPath) => {
+    try {
+      return fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory();
+    } catch {
+      return false;
+    }
+  });
+
+  if (existingFolders.length !== recentFolders.length) {
+    store.set('recentFolders', existingFolders);
+  }
+
+  return filtered;
+}
+
+function clearRecentFolders(): void {
+  store.set('recentFolders', []);
+  createMenu();
+}
+
+async function openFolderDialog(): Promise<void> {
+  if (!mainWindow) return;
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    const folderPath = result.filePaths[0];
+    await openFolder(folderPath);
+  }
+}
+
+async function openFolder(folderPath: string): Promise<void> {
+  if (!mainWindow) return;
+
+  try {
+    const stats = await fs.promises.stat(folderPath);
+    if (!stats.isDirectory()) {
+      throw new Error('Not a directory');
+    }
+
+    store.set('currentFolder', folderPath);
+    addToRecentFolders(folderPath);
+
+    mainWindow.webContents.send('folder-opened', {
+      folderPath,
+      folderName: path.basename(folderPath),
+    });
+  } catch (error) {
+    dialog.showErrorBox('Error', `Failed to open folder: ${error}`);
+  }
+}
+
+function closeFolder(): void {
+  store.set('currentFolder', null);
+  mainWindow?.webContents.send('folder-closed');
+  createMenu();
+}
+
+async function readFolderContents(folderPath: string): Promise<FolderEntry[]> {
+  try {
+    const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+    const result: FolderEntry[] = [];
+
+    for (const entry of entries) {
+      // Skip hidden files/folders
+      if (entry.name.startsWith('.')) continue;
+
+      const entryPath = path.join(folderPath, entry.name);
+      const isDirectory = entry.isDirectory();
+
+      // For files, only include supported types
+      if (!isDirectory && !isSupportedFile(entryPath)) continue;
+
+      result.push({
+        name: entry.name,
+        path: entryPath,
+        isDirectory,
+      });
+    }
+
+    // Sort: directories first, then alphabetically
+    result.sort((a, b) => {
+      if (a.isDirectory && !b.isDirectory) return -1;
+      if (!a.isDirectory && b.isDirectory) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    return result;
+  } catch (error) {
+    console.error(`Error reading folder: ${folderPath}`, error);
+    return [];
+  }
+}
+
 function getTheme(): 'light' | 'dark' {
   const storedTheme = store.get('theme');
   if (storedTheme === 'system') {
@@ -246,6 +392,8 @@ function createMenu(): void {
   const openFiles = store.get('openFiles');
   const openFilePaths = openFiles.map((f) => f.filePath);
   const recentFiles = getFilteredRecentFiles(openFilePaths);
+  const recentFolders = getFilteredRecentFolders();
+  const currentFolder = store.get('currentFolder');
 
   // Build recent files submenu
   const recentFilesSubmenu: Electron.MenuItemConstructorOptions[] =
@@ -269,6 +417,28 @@ function createMenu(): void {
           },
         ];
 
+  // Build recent folders submenu
+  const recentFoldersSubmenu: Electron.MenuItemConstructorOptions[] =
+    recentFolders.length > 0
+      ? [
+          ...recentFolders.map((folderPath) => ({
+            label: path.basename(folderPath),
+            sublabel: folderPath,
+            click: () => openFolder(folderPath),
+          })),
+          { type: 'separator' as const },
+          {
+            label: 'Clear Recent Folders',
+            click: clearRecentFolders,
+          },
+        ]
+      : [
+          {
+            label: 'No Recent Folders',
+            enabled: false,
+          },
+        ];
+
   const template: Electron.MenuItemConstructorOptions[] = [
     {
       label: 'File',
@@ -283,6 +453,25 @@ function createMenu(): void {
         {
           label: 'Open Recent',
           submenu: recentFilesSubmenu,
+        },
+        { type: 'separator' },
+        {
+          label: 'Open Folder...',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: async () => {
+            await openFolderDialog();
+          },
+        },
+        {
+          label: 'Open Recent Folder',
+          submenu: recentFoldersSubmenu,
+        },
+        {
+          label: 'Close Folder',
+          enabled: !!currentFolder,
+          click: () => {
+            closeFolder();
+          },
         },
         { type: 'separator' },
         {
@@ -755,6 +944,28 @@ ipcMain.handle('confirm-close', () => {
 // Handle close cancellation from renderer
 ipcMain.handle('cancel-close', () => {
   // Do nothing, just allow the renderer to continue
+});
+
+// Folder operations
+ipcMain.handle('open-folder-dialog', async () => {
+  await openFolderDialog();
+});
+
+ipcMain.handle('read-folder-contents', async (_, folderPath: string) => {
+  return await readFolderContents(folderPath);
+});
+
+ipcMain.handle('close-folder', () => {
+  closeFolder();
+});
+
+ipcMain.handle('get-current-folder', () => {
+  const currentFolder = store.get('currentFolder');
+  if (!currentFolder) return null;
+  return {
+    folderPath: currentFolder,
+    folderName: path.basename(currentFolder),
+  };
 });
 
 // Listen for OS theme changes

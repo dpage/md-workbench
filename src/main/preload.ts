@@ -31,6 +31,17 @@ export interface Preferences {
   openLinksInNewTab: boolean;
 }
 
+export interface FolderEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+}
+
+export interface FolderData {
+  folderPath: string;
+  folderName: string;
+}
+
 export type Theme = 'light' | 'dark';
 export type ThemeSetting = 'light' | 'dark' | 'system';
 
@@ -95,6 +106,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Window close operations
   confirmClose: () => ipcRenderer.invoke('confirm-close'),
   cancelClose: () => ipcRenderer.invoke('cancel-close'),
+
+  // Folder operations
+  openFolderDialog: () => ipcRenderer.invoke('open-folder-dialog'),
+  readFolderContents: (folderPath: string) =>
+    ipcRenderer.invoke('read-folder-contents', folderPath) as Promise<
+      Array<{ name: string; path: string; isDirectory: boolean }>
+    >,
+  closeFolder: () => ipcRenderer.invoke('close-folder'),
+  getCurrentFolder: () =>
+    ipcRenderer.invoke('get-current-folder') as Promise<{
+      folderPath: string;
+      folderName: string;
+    } | null>,
 
   // Event listeners
   onFileOpened: (callback: (data: FileData) => void) => {
@@ -175,5 +199,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = () => callback();
     ipcRenderer.on('find-replace', listener);
     return () => ipcRenderer.removeListener('find-replace', listener);
+  },
+
+  onFolderOpened: (
+    callback: (data: { folderPath: string; folderName: string }) => void
+  ) => {
+    const listener = (
+      _: Electron.IpcRendererEvent,
+      data: { folderPath: string; folderName: string }
+    ) => {
+      callback(data);
+    };
+    ipcRenderer.on('folder-opened', listener);
+    return () => ipcRenderer.removeListener('folder-opened', listener);
+  },
+
+  onFolderClosed: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('folder-closed', listener);
+    return () => ipcRenderer.removeListener('folder-closed', listener);
   },
 });

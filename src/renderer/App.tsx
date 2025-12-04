@@ -16,6 +16,7 @@ import SourceViewer from './components/SourceViewer';
 import WelcomeScreen from './components/WelcomeScreen';
 import SearchBar, { SearchOptions, SearchResult } from './components/SearchBar';
 import HelpPanel from './components/HelpPanel';
+import FolderPanel from './components/FolderPanel';
 
 interface FileData {
   filePath: string;
@@ -37,6 +38,17 @@ interface SessionData {
 interface Preferences {
   autoReload: boolean;
   openLinksInNewTab: boolean;
+}
+
+interface FolderEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+}
+
+interface FolderData {
+  folderPath: string;
+  folderName: string;
 }
 
 type Theme = 'light' | 'dark';
@@ -89,6 +101,13 @@ declare global {
       onCheckUnsavedBeforeClose: (callback: () => void) => () => void;
       onFind: (callback: () => void) => () => void;
       onFindReplace: (callback: () => void) => () => void;
+      // Folder operations
+      openFolderDialog: () => Promise<void>;
+      readFolderContents: (folderPath: string) => Promise<FolderEntry[]>;
+      closeFolder: () => Promise<void>;
+      getCurrentFolder: () => Promise<FolderData | null>;
+      onFolderOpened: (callback: (data: FolderData) => void) => () => void;
+      onFolderClosed: (callback: () => void) => () => void;
     };
   }
 }
@@ -111,6 +130,7 @@ const App: React.FC = () => {
   const [showSearch, setShowSearch] = useState(false);
   const [showReplace, setShowReplace] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [currentFolder, setCurrentFolder] = useState<FolderData | null>(null);
 
   // Search state for view mode (non-edit mode)
   const [viewSearchQuery, setViewSearchQuery] = useState('');
@@ -630,6 +650,38 @@ const App: React.FC = () => {
     setShowHelp(false);
   }, []);
 
+  // Folder handlers
+  const handleFolderOpened = useCallback((data: FolderData) => {
+    setCurrentFolder(data);
+  }, []);
+
+  const handleFolderClosed = useCallback(() => {
+    setCurrentFolder(null);
+  }, []);
+
+  const handleCloseFolder = useCallback(() => {
+    window.electronAPI?.closeFolder();
+  }, []);
+
+  const handleFolderFileClick = useCallback((filePath: string) => {
+    window.electronAPI?.openLocalFile(filePath);
+  }, []);
+
+  // Restore current folder on app load
+  useEffect(() => {
+    const restoreFolder = async () => {
+      try {
+        const folder = await window.electronAPI?.getCurrentFolder();
+        if (folder) {
+          setCurrentFolder(folder);
+        }
+      } catch (error) {
+        console.error('Failed to restore folder:', error);
+      }
+    };
+    restoreFolder();
+  }, []);
+
   const handleTabClose = useCallback((tabId: string) => {
     // Stop watching the file being closed
     const tabToClose = tabsRef.current.find((tab) => tab.id === tabId);
@@ -748,6 +800,10 @@ const App: React.FC = () => {
     const unsubscribeFind = window.electronAPI?.onFind(handleFind);
     const unsubscribeFindReplace =
       window.electronAPI?.onFindReplace(handleFindReplace);
+    const unsubscribeFolderOpened =
+      window.electronAPI?.onFolderOpened(handleFolderOpened);
+    const unsubscribeFolderClosed =
+      window.electronAPI?.onFolderClosed(handleFolderClosed);
 
     return () => {
       unsubscribeFileOpened?.();
@@ -760,6 +816,8 @@ const App: React.FC = () => {
       unsubscribeCheckUnsaved?.();
       unsubscribeFind?.();
       unsubscribeFindReplace?.();
+      unsubscribeFolderOpened?.();
+      unsubscribeFolderClosed?.();
     };
   }, [
     handleFileOpened,
@@ -772,6 +830,8 @@ const App: React.FC = () => {
     handleCheckUnsavedBeforeClose,
     handleFind,
     handleFindReplace,
+    handleFolderOpened,
+    handleFolderClosed,
   ]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -822,80 +882,90 @@ const App: React.FC = () => {
         onTabClose={handleTabClose}
       />
       <main className="app-main">
-        {activeTab ? (
-          activeTab.viewSource ? (
-            <div className="view-mode-container">
-              {showSearch && (
-                <SearchBar
-                  onClose={handleCloseSearch}
-                  onSearch={handleViewSearch}
-                  onReplace={handleViewReplace}
-                  onReplaceAll={handleViewReplaceAll}
-                  onNavigate={handleViewNavigate}
-                  matchCount={viewMatchCount}
-                  currentMatch={viewCurrentMatch}
-                  showReplace={false}
-                  allowReplace={false}
-                  initialQuery={viewSearchQuery}
-                  initialOptions={viewSearchOptions}
+        {currentFolder && (
+          <FolderPanel
+            folderPath={currentFolder.folderPath}
+            folderName={currentFolder.folderName}
+            onFileClick={handleFolderFileClick}
+            onClose={handleCloseFolder}
+          />
+        )}
+        <div className="app-content">
+          {activeTab ? (
+            activeTab.viewSource ? (
+              <div className="view-mode-container">
+                {showSearch && (
+                  <SearchBar
+                    onClose={handleCloseSearch}
+                    onSearch={handleViewSearch}
+                    onReplace={handleViewReplace}
+                    onReplaceAll={handleViewReplaceAll}
+                    onNavigate={handleViewNavigate}
+                    matchCount={viewMatchCount}
+                    currentMatch={viewCurrentMatch}
+                    showReplace={false}
+                    allowReplace={false}
+                    initialQuery={viewSearchQuery}
+                    initialOptions={viewSearchOptions}
+                  />
+                )}
+                <SourceViewer
+                  content={activeTab.content}
+                  searchQuery={showSearch ? viewSearchQuery : ''}
+                  searchOptions={viewSearchOptions}
+                  initialMatchIndex={viewCurrentMatch - 1}
+                  onMatchChange={handleCurrentMatchChange}
                 />
-              )}
-              <SourceViewer
-                content={activeTab.content}
-                searchQuery={showSearch ? viewSearchQuery : ''}
-                searchOptions={viewSearchOptions}
-                initialMatchIndex={viewCurrentMatch - 1}
-                onMatchChange={handleCurrentMatchChange}
-              />
-            </div>
-          ) : activeTab.editMode ? (
-            <SplitEditor
-              key={`split-${activeTab.id}`}
-              content={activeTab.content}
-              fileName={activeTab.fileName}
-              filePath={activeTab.filePath}
-              onContentChange={handleContentChange}
-              showSearch={showSearch}
-              showReplace={showReplace}
-              onCloseSearch={handleCloseSearch}
-              initialSearchQuery={viewSearchQuery}
-              initialSearchOptions={viewSearchOptions}
-              initialMatchIndex={viewCurrentMatch - 1}
-              onSearchStateChange={handleSearchStateChange}
-              onCurrentMatchChange={handleCurrentMatchChange}
-            />
-          ) : (
-            <div className="view-mode-container">
-              {showSearch && (
-                <SearchBar
-                  onClose={handleCloseSearch}
-                  onSearch={handleViewSearch}
-                  onReplace={handleViewReplace}
-                  onReplaceAll={handleViewReplaceAll}
-                  onNavigate={handleViewNavigate}
-                  matchCount={viewMatchCount}
-                  currentMatch={viewCurrentMatch}
-                  showReplace={false}
-                  allowReplace={false}
-                  initialQuery={viewSearchQuery}
-                  initialOptions={viewSearchOptions}
-                />
-              )}
-              <MarkdownViewer
-                key={activeTab.id}
+              </div>
+            ) : activeTab.editMode ? (
+              <SplitEditor
+                key={`split-${activeTab.id}`}
                 content={activeTab.content}
                 fileName={activeTab.fileName}
                 filePath={activeTab.filePath}
-                initialScrollPosition={scrollPositionsRef.current.get(activeTab.id)}
-                onScrollChange={handleScrollChange}
-                searchHighlight={viewSearchHighlight}
-                currentMatchIndex={viewCurrentMatch - 1}
+                onContentChange={handleContentChange}
+                showSearch={showSearch}
+                showReplace={showReplace}
+                onCloseSearch={handleCloseSearch}
+                initialSearchQuery={viewSearchQuery}
+                initialSearchOptions={viewSearchOptions}
+                initialMatchIndex={viewCurrentMatch - 1}
+                onSearchStateChange={handleSearchStateChange}
+                onCurrentMatchChange={handleCurrentMatchChange}
               />
-            </div>
-          )
-        ) : (
-          <WelcomeScreen onOpenFile={handleOpenFile} />
-        )}
+            ) : (
+              <div className="view-mode-container">
+                {showSearch && (
+                  <SearchBar
+                    onClose={handleCloseSearch}
+                    onSearch={handleViewSearch}
+                    onReplace={handleViewReplace}
+                    onReplaceAll={handleViewReplaceAll}
+                    onNavigate={handleViewNavigate}
+                    matchCount={viewMatchCount}
+                    currentMatch={viewCurrentMatch}
+                    showReplace={false}
+                    allowReplace={false}
+                    initialQuery={viewSearchQuery}
+                    initialOptions={viewSearchOptions}
+                  />
+                )}
+                <MarkdownViewer
+                  key={activeTab.id}
+                  content={activeTab.content}
+                  fileName={activeTab.fileName}
+                  filePath={activeTab.filePath}
+                  initialScrollPosition={scrollPositionsRef.current.get(activeTab.id)}
+                  onScrollChange={handleScrollChange}
+                  searchHighlight={viewSearchHighlight}
+                  currentMatchIndex={viewCurrentMatch - 1}
+                />
+              </div>
+            )
+          ) : (
+            <WelcomeScreen onOpenFile={handleOpenFile} />
+          )}
+        </div>
       </main>
       <HelpPanel isOpen={showHelp} onClose={handleCloseHelp} />
     </div>
