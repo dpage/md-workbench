@@ -1,0 +1,390 @@
+//
+// Markdown Workbench
+//
+// Copyright (c) 2025 Dave Page
+//
+// This software is released under the PostgreSQL License.
+// See LICENSE.md for details.
+//
+
+import React, { useState } from 'react';
+
+interface HelpPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const HelpPanel: React.FC<HelpPanelProps> = ({ isOpen, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'help' | 'markdown'>('help');
+
+  return (
+    <>
+      {/* Overlay */}
+      <div
+        className={`help-panel-overlay ${isOpen ? 'open' : ''}`}
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <div className={`help-panel ${isOpen ? 'open' : ''}`}>
+        <div className="help-panel-header">
+          <div className="help-panel-tabs">
+            <button
+              className={`help-panel-tab ${activeTab === 'help' ? 'active' : ''}`}
+              onClick={() => setActiveTab('help')}
+            >
+              Help
+            </button>
+            <button
+              className={`help-panel-tab ${activeTab === 'markdown' ? 'active' : ''}`}
+              onClick={() => setActiveTab('markdown')}
+            >
+              Markdown Primer
+            </button>
+          </div>
+          <button
+            className="help-panel-close"
+            onClick={onClose}
+            title="Close"
+            aria-label="Close help panel"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M4 4L12 12M12 4L4 12"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className="help-panel-content">
+          {activeTab === 'help' ? <HelpContent /> : <MarkdownPrimer />}
+        </div>
+      </div>
+    </>
+  );
+};
+
+const HelpContent: React.FC = () => (
+  <div className="help-content">
+    <h1>Markdown Workbench</h1>
+    <p className="help-intro">
+      A modern, feature-rich Markdown viewer and editor.
+    </p>
+
+    <section>
+      <h2>Opening Files</h2>
+      <ul>
+        <li>Click the <strong>Open</strong> button in the toolbar</li>
+        <li>Use <kbd>Cmd+O</kbd> (macOS) or <kbd>Ctrl+O</kbd> (Windows/Linux)</li>
+        <li>Drag and drop markdown files onto the window</li>
+        <li>Click links to other markdown files within documents</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Viewing Modes</h2>
+      <p>Switch between three viewing modes using the toolbar buttons:</p>
+      <ul>
+        <li>
+          <strong>Preview</strong> (default) — Rendered markdown with full styling,
+          syntax highlighting, and diagram support
+        </li>
+        <li>
+          <strong>Source</strong> — View the raw markdown source code
+        </li>
+        <li>
+          <strong>Edit</strong> — Split view with an editor on the left and live
+          preview on the right, with synchronized scrolling
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Search &amp; Replace</h2>
+      <ul>
+        <li>Press <kbd>Cmd+F</kbd> / <kbd>Ctrl+F</kbd> to open search</li>
+        <li>Press <kbd>Cmd+H</kbd> / <kbd>Ctrl+H</kbd> for find and replace (Edit mode only)</li>
+        <li>Use <kbd>Enter</kbd> or the arrow buttons to navigate between matches</li>
+        <li>Toggle <strong>Aa</strong> for case-sensitive search</li>
+        <li>Toggle <strong>.*</strong> for regular expression search</li>
+      </ul>
+      <p>Search state is preserved when switching between viewing modes.</p>
+    </section>
+
+    <section>
+      <h2>Navigation</h2>
+      <ul>
+        <li>Use tabs to switch between open documents</li>
+        <li>Use <kbd>Cmd+[</kbd> / <kbd>Alt+Left</kbd> to go back</li>
+        <li>Use <kbd>Cmd+]</kbd> / <kbd>Alt+Right</kbd> to go forward</li>
+        <li>Click links to navigate to other markdown files</li>
+        <li>External links open in your default browser</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Editing</h2>
+      <ul>
+        <li>Press <kbd>Cmd+S</kbd> / <kbd>Ctrl+S</kbd> to save</li>
+        <li>Press <kbd>Cmd+Shift+S</kbd> / <kbd>Ctrl+Shift+S</kbd> to save as</li>
+        <li>Unsaved changes are indicated with a dot on the tab</li>
+        <li>You'll be prompted to save when closing a tab with unsaved changes</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Keyboard Shortcuts</h2>
+      <table className="help-table">
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>macOS</th>
+            <th>Windows/Linux</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Open File</td>
+            <td><kbd>Cmd+O</kbd></td>
+            <td><kbd>Ctrl+O</kbd></td>
+          </tr>
+          <tr>
+            <td>Save</td>
+            <td><kbd>Cmd+S</kbd></td>
+            <td><kbd>Ctrl+S</kbd></td>
+          </tr>
+          <tr>
+            <td>Save As</td>
+            <td><kbd>Cmd+Shift+S</kbd></td>
+            <td><kbd>Ctrl+Shift+S</kbd></td>
+          </tr>
+          <tr>
+            <td>Find</td>
+            <td><kbd>Cmd+F</kbd></td>
+            <td><kbd>Ctrl+F</kbd></td>
+          </tr>
+          <tr>
+            <td>Find &amp; Replace</td>
+            <td><kbd>Cmd+H</kbd></td>
+            <td><kbd>Ctrl+H</kbd></td>
+          </tr>
+          <tr>
+            <td>Close Tab</td>
+            <td><kbd>Cmd+W</kbd></td>
+            <td><kbd>Ctrl+W</kbd></td>
+          </tr>
+          <tr>
+            <td>Navigate Back</td>
+            <td><kbd>Cmd+[</kbd></td>
+            <td><kbd>Alt+Left</kbd></td>
+          </tr>
+          <tr>
+            <td>Navigate Forward</td>
+            <td><kbd>Cmd+]</kbd></td>
+            <td><kbd>Alt+Right</kbd></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Features</h2>
+      <ul>
+        <li><strong>GitHub Flavored Markdown</strong> — Tables, task lists, strikethrough, and more</li>
+        <li><strong>Syntax Highlighting</strong> — Code blocks with language-specific highlighting</li>
+        <li><strong>Mermaid Diagrams</strong> — Flowcharts, sequence diagrams, and more</li>
+        <li><strong>Admonitions</strong> — Note, warning, tip, and other callout blocks</li>
+        <li><strong>Auto-reload</strong> — Files automatically refresh when changed externally</li>
+        <li><strong>Dark/Light Theme</strong> — Follows your system preference</li>
+      </ul>
+    </section>
+  </div>
+);
+
+const MarkdownPrimer: React.FC = () => (
+  <div className="help-content markdown-primer">
+    <h1>Markdown Primer</h1>
+    <p className="help-intro">
+      A quick reference for Markdown syntax supported in this application.
+    </p>
+
+    <section>
+      <h2>Headings</h2>
+      <pre className="help-code">{`# Heading 1
+## Heading 2
+### Heading 3
+#### Heading 4
+##### Heading 5
+###### Heading 6`}</pre>
+    </section>
+
+    <section>
+      <h2>Text Formatting</h2>
+      <pre className="help-code">{`**bold text**
+*italic text*
+***bold and italic***
+~~strikethrough~~
+\`inline code\``}</pre>
+    </section>
+
+    <section>
+      <h2>Links &amp; Images</h2>
+      <pre className="help-code">{`[Link text](https://example.com)
+[Link with title](https://example.com "Title")
+
+![Alt text](image.png)
+![Alt text](image.png "Image title")`}</pre>
+    </section>
+
+    <section>
+      <h2>Lists</h2>
+      <pre className="help-code">{`Unordered list:
+- Item 1
+- Item 2
+  - Nested item
+  - Another nested item
+- Item 3
+
+Ordered list:
+1. First item
+2. Second item
+3. Third item
+
+Task list:
+- [x] Completed task
+- [ ] Incomplete task`}</pre>
+    </section>
+
+    <section>
+      <h2>Blockquotes</h2>
+      <pre className="help-code">{`> This is a blockquote.
+> It can span multiple lines.
+>
+> > Nested blockquotes are supported.`}</pre>
+    </section>
+
+    <section>
+      <h2>Code Blocks</h2>
+      <pre className="help-code">{`Inline code: \`const x = 42;\`
+
+Fenced code block with syntax highlighting:
+
+\`\`\`javascript
+function greet(name) {
+  return \`Hello, \${name}!\`;
+}
+\`\`\`
+
+\`\`\`python
+def greet(name):
+    return f"Hello, {name}!"
+\`\`\``}</pre>
+    </section>
+
+    <section>
+      <h2>Tables</h2>
+      <pre className="help-code">{`| Header 1 | Header 2 | Header 3 |
+|----------|:--------:|---------:|
+| Left     | Center   | Right    |
+| aligned  | aligned  | aligned  |
+
+Alignment:
+- :--- Left aligned
+- :---: Center aligned
+- ---: Right aligned`}</pre>
+    </section>
+
+    <section>
+      <h2>Horizontal Rule</h2>
+      <pre className="help-code">{`---
+
+or
+
+***
+
+or
+
+___`}</pre>
+    </section>
+
+    <section>
+      <h2>Admonitions</h2>
+      <p>Special callout blocks for notes, warnings, etc:</p>
+      <pre className="help-code">{`> [!NOTE]
+> This is a note admonition.
+
+> [!TIP]
+> This is a helpful tip.
+
+> [!IMPORTANT]
+> Important information here.
+
+> [!WARNING]
+> Be careful about this.
+
+> [!CAUTION]
+> Proceed with caution.`}</pre>
+      <p>Supported types: note, tip, important, warning, caution, danger, info, abstract, todo, success, question, failure, bug, example, quote</p>
+    </section>
+
+    <section>
+      <h2>Mermaid Diagrams</h2>
+      <p>Create diagrams using Mermaid syntax:</p>
+      <pre className="help-code">{`\`\`\`mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Do something]
+    B -->|No| D[Do something else]
+    C --> E[End]
+    D --> E
+\`\`\`
+
+\`\`\`mermaid
+sequenceDiagram
+    Alice->>Bob: Hello Bob!
+    Bob-->>Alice: Hi Alice!
+\`\`\`
+
+\`\`\`mermaid
+pie title Pets
+    "Dogs" : 386
+    "Cats" : 85
+    "Birds" : 15
+\`\`\``}</pre>
+    </section>
+
+    <section>
+      <h2>Escaping Characters</h2>
+      <pre className="help-code">{`Use backslash to escape special characters:
+\\* Not italic \\*
+\\# Not a heading
+\\[Not a link\\](url)`}</pre>
+    </section>
+
+    <section>
+      <h2>HTML</h2>
+      <p>Raw HTML is supported:</p>
+      <pre className="help-code">{`<details>
+<summary>Click to expand</summary>
+
+Hidden content here.
+
+</details>
+
+<kbd>Ctrl</kbd> + <kbd>C</kbd>
+
+<mark>Highlighted text</mark>`}</pre>
+    </section>
+  </div>
+);
+
+export default HelpPanel;

@@ -25,6 +25,7 @@ interface ToolbarProps {
   onPaste?: () => void;
   onFind?: () => void;
   onFindReplace?: () => void;
+  onHelp?: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -43,6 +44,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onPaste,
   onFind,
   onFindReplace,
+  onHelp,
 }) => {
   const [showCopied, setShowCopied] = useState(false);
   const copyTimeoutRef = useRef<number | null>(null);
@@ -371,6 +373,30 @@ const Toolbar: React.FC<ToolbarProps> = ({
             />
           </svg>
           <span>Edit</span>
+        </button>
+        <div className="toolbar-separator" />
+        <button
+          className="toolbar-button toolbar-button-help"
+          onClick={onHelp}
+          title="Help"
+          aria-label="Help"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5" />
+            <path
+              d="M6 6C6 4.89543 6.89543 4 8 4C9.10457 4 10 4.89543 10 6C10 6.83333 9.5 7.5 8.5 8C8.25 8.125 8 8.375 8 8.75V9"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <circle cx="8" cy="11" r="0.75" fill="currentColor" />
+          </svg>
         </button>
       </div>
     </div>

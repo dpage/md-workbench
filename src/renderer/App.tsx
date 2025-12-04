@@ -15,6 +15,7 @@ import SplitEditor from './components/SplitEditor';
 import SourceViewer from './components/SourceViewer';
 import WelcomeScreen from './components/WelcomeScreen';
 import SearchBar, { SearchOptions, SearchResult } from './components/SearchBar';
+import HelpPanel from './components/HelpPanel';
 
 interface FileData {
   filePath: string;
@@ -109,6 +110,7 @@ const App: React.FC = () => {
   const [isRestoring, setIsRestoring] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [showReplace, setShowReplace] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Search state for view mode (non-edit mode)
   const [viewSearchQuery, setViewSearchQuery] = useState('');
@@ -619,6 +621,15 @@ const App: React.FC = () => {
     setViewMatchCount(totalMatches);
   }, []);
 
+  // Help panel
+  const handleToggleHelp = useCallback(() => {
+    setShowHelp((prev) => !prev);
+  }, []);
+
+  const handleCloseHelp = useCallback(() => {
+    setShowHelp(false);
+  }, []);
+
   const handleTabClose = useCallback((tabId: string) => {
     // Stop watching the file being closed
     const tabToClose = tabsRef.current.find((tab) => tab.id === tabId);
@@ -802,6 +813,7 @@ const App: React.FC = () => {
         onPaste={handlePaste}
         onFind={handleFind}
         onFindReplace={handleFindReplace}
+        onHelp={handleToggleHelp}
       />
       <TabBar
         tabs={tabs}
@@ -885,6 +897,7 @@ const App: React.FC = () => {
           <WelcomeScreen onOpenFile={handleOpenFile} />
         )}
       </main>
+      <HelpPanel isOpen={showHelp} onClose={handleCloseHelp} />
     </div>
   );
 };
