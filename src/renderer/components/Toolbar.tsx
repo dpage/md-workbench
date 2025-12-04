@@ -1,0 +1,380 @@
+//
+// Markdown Workbench
+//
+// Copyright (c) 2025 Dave Page
+//
+// This software is released under the PostgreSQL License.
+// See LICENSE.md for details.
+//
+
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+
+interface ToolbarProps {
+  onOpenFile: () => void;
+  onBack: () => void;
+  onForward: () => void;
+  canGoBack: boolean;
+  canGoForward: boolean;
+  viewSource: boolean;
+  onToggleViewSource: () => void;
+  editMode: boolean;
+  onToggleEditMode: () => void;
+  hasActiveTab: boolean;
+  onCut?: () => void;
+  onCopy?: () => void;
+  onPaste?: () => void;
+  onFind?: () => void;
+  onFindReplace?: () => void;
+}
+
+const Toolbar: React.FC<ToolbarProps> = ({
+  onOpenFile,
+  onBack,
+  onForward,
+  canGoBack,
+  canGoForward,
+  viewSource,
+  onToggleViewSource,
+  editMode,
+  onToggleEditMode,
+  hasActiveTab,
+  onCut,
+  onCopy,
+  onPaste,
+  onFind,
+  onFindReplace,
+}) => {
+  const [showCopied, setShowCopied] = useState(false);
+  const copyTimeoutRef = useRef<number | null>(null);
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleCopy = useCallback(() => {
+    onCopy?.();
+    setShowCopied(true);
+
+    // Clear any existing timeout
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+    }
+
+    // Reset after 2 seconds
+    copyTimeoutRef.current = window.setTimeout(() => {
+      setShowCopied(false);
+    }, 2000);
+  }, [onCopy]);
+  return (
+    <div className="toolbar">
+      <div className="toolbar-left">
+        <div className="toolbar-nav">
+          <button
+            className="toolbar-button"
+            onClick={onBack}
+            disabled={!canGoBack}
+            title="Go Back"
+            aria-label="Go Back"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M10 12L6 8L10 4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            className="toolbar-button"
+            onClick={onForward}
+            disabled={!canGoForward}
+            title="Go Forward"
+            aria-label="Go Forward"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M6 4L10 8L6 12"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+        {hasActiveTab && (
+          <>
+            <div className="toolbar-separator" />
+            {editMode && (
+              <button
+                className="toolbar-button toolbar-button-icon"
+                onClick={onCut}
+                title="Cut (Cmd+X)"
+                aria-label="Cut"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle cx="4" cy="4" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                  <circle cx="4" cy="12" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                  <path
+                    d="M5.5 5.5L14 14M5.5 10.5L14 2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            )}
+            <button
+              className={`toolbar-button toolbar-button-icon ${showCopied ? 'toolbar-button-copied' : ''}`}
+              onClick={handleCopy}
+              title={showCopied ? 'Copied!' : 'Copy (Cmd+C)'}
+              aria-label={showCopied ? 'Copied' : 'Copy'}
+            >
+              {showCopied ? (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M3 8.5L6 11.5L13 4.5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="5"
+                    y="5"
+                    width="9"
+                    height="9"
+                    rx="1"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M11 5V3C11 2.44772 10.5523 2 10 2H3C2.44772 2 2 2.44772 2 3V10C2 10.5523 2.44772 11 3 11H5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                </svg>
+              )}
+            </button>
+            {editMode && (
+              <button
+                className="toolbar-button toolbar-button-icon"
+                onClick={onPaste}
+                title="Paste (Cmd+V)"
+                aria-label="Paste"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="3"
+                    y="4"
+                    width="10"
+                    height="10"
+                    rx="1"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                  <path
+                    d="M6 4V3C6 2.44772 6.44772 2 7 2H9C9.55228 2 10 2.44772 10 3V4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                </svg>
+              </button>
+            )}
+            <div className="toolbar-separator" />
+            <button
+              className="toolbar-button toolbar-button-icon"
+              onClick={onFind}
+              title="Find (Cmd+F)"
+              aria-label="Find"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle cx="7" cy="7" r="4.25" stroke="currentColor" strokeWidth="1.5" />
+                <path
+                  d="M10 10L14 14"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+            {editMode && (
+              <button
+                className="toolbar-button toolbar-button-icon"
+                onClick={onFindReplace}
+                title="Find and Replace (Cmd+H)"
+                aria-label="Find and Replace"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle cx="5" cy="5" r="3.25" stroke="currentColor" strokeWidth="1.5" />
+                  <path
+                    d="M7.5 7.5L10 10"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M10 11H14M12 9V13"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </>
+        )}
+      </div>
+      <div className="toolbar-actions">
+        <button
+          className="toolbar-button toolbar-button-open"
+          onClick={onOpenFile}
+          title="Open File (Cmd+O)"
+          aria-label="Open File"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M2 13V3C2 2.44772 2.44772 2 3 2H6L8 4H13C13.5523 4 14 4.44772 14 5V13C14 13.5523 13.5523 14 13 14H3C2.44772 14 2 13.5523 2 13Z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span>Open</span>
+        </button>
+        <button
+          className={`toolbar-button toolbar-button-source ${viewSource ? 'active' : ''}`}
+          onClick={onToggleViewSource}
+          disabled={!hasActiveTab}
+          title={viewSource ? 'View Rendered' : 'View Source'}
+          aria-label={viewSource ? 'View Rendered' : 'View Source'}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M5.5 4L2 8L5.5 12"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M10.5 4L14 8L10.5 12"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span>Source</span>
+        </button>
+        <button
+          className={`toolbar-button toolbar-button-edit ${editMode ? 'active' : ''}`}
+          onClick={onToggleEditMode}
+          disabled={!hasActiveTab}
+          title={editMode ? 'Exit Split View' : 'Split View'}
+          aria-label={editMode ? 'Exit Split View' : 'Split View'}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect
+              x="2"
+              y="2"
+              width="12"
+              height="12"
+              rx="1"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <line
+              x1="8"
+              y1="2"
+              x2="8"
+              y2="14"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+          </svg>
+          <span>Edit</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default Toolbar;
