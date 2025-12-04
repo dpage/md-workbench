@@ -724,6 +724,107 @@ const App: React.FC = () => {
     });
   }, [handleTabClose]);
 
+  // Close all tabs except the specified one
+  const handleCloseOthers = useCallback(
+    (tabId: string) => {
+      const tabsToClose = tabsRef.current.filter((tab) => tab.id !== tabId);
+      tabsToClose.forEach((tab) => {
+        window.electronAPI?.stopWatching(tab.filePath);
+        scrollPositionsRef.current.delete(tab.id);
+        navigationHistoryRef.current.delete(tab.id);
+      });
+      setTabs((prev) => prev.filter((tab) => tab.id === tabId));
+      setActiveTabId(tabId);
+    },
+    []
+  );
+
+  // Close all tabs
+  const handleCloseAll = useCallback(() => {
+    tabsRef.current.forEach((tab) => {
+      window.electronAPI?.stopWatching(tab.filePath);
+      scrollPositionsRef.current.delete(tab.id);
+      navigationHistoryRef.current.delete(tab.id);
+    });
+    setTabs([]);
+    setActiveTabId(null);
+  }, []);
+
+  // Close tabs to the right of the specified tab
+  const handleCloseToRight = useCallback((tabId: string) => {
+    const tabIndex = tabsRef.current.findIndex((tab) => tab.id === tabId);
+    if (tabIndex === -1) return;
+
+    const tabsToClose = tabsRef.current.slice(tabIndex + 1);
+    tabsToClose.forEach((tab) => {
+      window.electronAPI?.stopWatching(tab.filePath);
+      scrollPositionsRef.current.delete(tab.id);
+      navigationHistoryRef.current.delete(tab.id);
+    });
+
+    setTabs((prev) => prev.slice(0, tabIndex + 1));
+
+    // If active tab was closed, switch to the right-clicked tab
+    setActiveTabId((currentActiveId) => {
+      const closedIds = tabsToClose.map((t) => t.id);
+      if (currentActiveId && closedIds.includes(currentActiveId)) {
+        return tabId;
+      }
+      return currentActiveId;
+    });
+  }, []);
+
+  // Close tabs to the left of the specified tab
+  const handleCloseToLeft = useCallback((tabId: string) => {
+    const tabIndex = tabsRef.current.findIndex((tab) => tab.id === tabId);
+    if (tabIndex === -1) return;
+
+    const tabsToClose = tabsRef.current.slice(0, tabIndex);
+    tabsToClose.forEach((tab) => {
+      window.electronAPI?.stopWatching(tab.filePath);
+      scrollPositionsRef.current.delete(tab.id);
+      navigationHistoryRef.current.delete(tab.id);
+    });
+
+    setTabs((prev) => prev.slice(tabIndex));
+
+    // If active tab was closed, switch to the right-clicked tab
+    setActiveTabId((currentActiveId) => {
+      const closedIds = tabsToClose.map((t) => t.id);
+      if (currentActiveId && closedIds.includes(currentActiveId)) {
+        return tabId;
+      }
+      return currentActiveId;
+    });
+  }, []);
+
+  // Close all tabs that don't have unsaved changes
+  const handleCloseSaved = useCallback(() => {
+    const savedTabs = tabsRef.current.filter((tab) => !tab.isDirty);
+    savedTabs.forEach((tab) => {
+      window.electronAPI?.stopWatching(tab.filePath);
+      scrollPositionsRef.current.delete(tab.id);
+      navigationHistoryRef.current.delete(tab.id);
+    });
+
+    const remainingTabs = tabsRef.current.filter((tab) => tab.isDirty);
+    setTabs(remainingTabs);
+
+    // If active tab was closed, switch to first remaining tab
+    setActiveTabId((currentActiveId) => {
+      const closedIds = savedTabs.map((t) => t.id);
+      if (currentActiveId && closedIds.includes(currentActiveId)) {
+        return remainingTabs.length > 0 ? remainingTabs[0].id : null;
+      }
+      return currentActiveId;
+    });
+  }, []);
+
+  // Copy file path to clipboard
+  const handleCopyPath = useCallback((filePath: string) => {
+    navigator.clipboard.writeText(filePath);
+  }, []);
+
   const handleThemeChanged = useCallback((newTheme: Theme) => {
     setTheme(newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
@@ -880,6 +981,12 @@ const App: React.FC = () => {
         activeTabId={activeTabId}
         onTabSelect={handleTabSelect}
         onTabClose={handleTabClose}
+        onCloseOthers={handleCloseOthers}
+        onCloseAll={handleCloseAll}
+        onCloseToRight={handleCloseToRight}
+        onCloseToLeft={handleCloseToLeft}
+        onCloseSaved={handleCloseSaved}
+        onCopyPath={handleCopyPath}
       />
       <main className="app-main">
         {currentFolder && (
