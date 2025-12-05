@@ -1169,9 +1169,9 @@ const App: React.FC = () => {
                 />
               </div>
             )
-          ) : (
+          ) : !isRestoring ? (
             <WelcomeScreen onOpenFile={handleOpenFile} />
-          )}
+          ) : null}
         </div>
       </main>
       <HelpPanel isOpen={showHelp} onClose={handleCloseHelp} />

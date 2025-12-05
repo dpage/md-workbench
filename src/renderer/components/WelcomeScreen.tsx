@@ -17,10 +17,10 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onOpenFile }) => {
   return (
     <div className="welcome-screen">
       <h1>Markdown Workbench</h1>
-      <p>A simple markdown file viewer</p>
+      <p>View and edit Markdown, code, and configuration files</p>
       <div className="welcome-actions">
         <button className="open-file-btn" onClick={onOpenFile}>
-          Open Markdown File
+          Open File
         </button>
         <p className="shortcut-hint">
           Or press <kbd>Ctrl</kbd>+<kbd>O</kbd> (Windows/Linux) or{' '}

@@ -781,6 +781,7 @@ function createWindow(): void {
     width: bounds.width,
     height: bounds.height,
     title: 'Markdown Workbench',
+    backgroundColor: '#1e1e1e', // Dark background to prevent white flash on startup
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
