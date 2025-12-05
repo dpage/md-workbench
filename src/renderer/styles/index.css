@@ -299,6 +299,11 @@ body {
   gap: 1rem;
 }
 
+.welcome-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
 .open-file-btn {
   background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
   color: white;
@@ -316,6 +321,28 @@ body {
 }
 
 .open-file-btn:active {
+  transform: translateY(0);
+}
+
+.open-folder-btn {
+  background: transparent;
+  color: var(--accent-primary);
+  border: 2px solid var(--accent-primary);
+  padding: 10px 22px;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.open-folder-btn:hover {
+  transform: translateY(-2px);
+  background-color: var(--accent-primary);
+  color: white;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.open-folder-btn:active {
   transform: translateY(0);
 }
 

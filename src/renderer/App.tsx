@@ -220,6 +220,10 @@ const App: React.FC = () => {
     window.electronAPI?.openFileDialog();
   }, []);
 
+  const handleOpenFolder = useCallback(() => {
+    window.electronAPI?.openFolderDialog();
+  }, []);
+
   const handleFileOpened = useCallback((data: FileData) => {
     const currentTabs = tabsRef.current;
     const existingTab = currentTabs.find(
@@ -1282,7 +1286,7 @@ const App: React.FC = () => {
               </div>
             )
           ) : !isRestoring ? (
-            <WelcomeScreen onOpenFile={handleOpenFile} />
+            <WelcomeScreen onOpenFile={handleOpenFile} onOpenFolder={handleOpenFolder} />
           ) : null}
         </div>
       </main>
