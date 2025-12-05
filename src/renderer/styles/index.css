@@ -1379,12 +1379,21 @@ body {
   font-size: 0.875rem;
   line-height: 1.6;
   tab-size: 4;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  white-space: pre;
   overflow: auto;
   color: transparent;
   pointer-events: none;
   background-color: var(--bg-secondary);
+}
+
+/* Hide scrollbars on highlight overlay - textarea handles scrolling */
+.source-editor-highlight::-webkit-scrollbar {
+  display: none;
+}
+
+.source-editor-highlight {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
 }
 
 /* Source Editor (textarea) */
@@ -2463,6 +2472,23 @@ body {
 
 .formatting-dialog-body input::placeholder {
   color: var(--text-muted);
+}
+
+.formatting-input-with-button {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.formatting-input-with-button input {
+  flex: 1;
+  margin-top: 0;
+}
+
+.formatting-input-with-button button {
+  flex-shrink: 0;
+  white-space: nowrap;
+  margin-top: 6px;
 }
 
 .formatting-dialog-field {

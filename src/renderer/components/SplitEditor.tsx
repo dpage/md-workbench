@@ -426,7 +426,59 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     };
   }, [isDragging]);
 
-  // Synchronized scrolling
+  // Calculate line height from the editor
+  const getLineHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return 22.4; // Default fallback (0.875rem * 1.6 line-height)
+    const style = window.getComputedStyle(textarea);
+    const fontSize = parseFloat(style.fontSize);
+    const lineHeight = parseFloat(style.lineHeight);
+    return isNaN(lineHeight) ? fontSize * 1.6 : lineHeight;
+  }, []);
+
+  // Extract headings from markdown content with their character positions
+  const extractHeadings = useCallback((content: string) => {
+    const headings: Array<{ level: number; text: string; charOffset: number; lineIndex: number }> = [];
+    const lines = content.split('\n');
+    let charOffset = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Match markdown headings (# to ######)
+      const match = line.match(/^(#{1,6})\s+(.+)$/);
+      if (match) {
+        headings.push({
+          level: match[1].length,
+          text: match[2].trim(),
+          charOffset,
+          lineIndex: i,
+        });
+      }
+      charOffset += line.length + 1; // +1 for newline
+    }
+
+    return headings;
+  }, []);
+
+  // Find heading elements in the preview DOM with their positions
+  const getPreviewHeadingPositions = useCallback((renderedEl: Element) => {
+    const headingElements = renderedEl.querySelectorAll('h1, h2, h3, h4, h5, h6');
+    const positions: Array<{ text: string; top: number; element: Element }> = [];
+
+    headingElements.forEach((el) => {
+      // Get the text content, normalized for comparison
+      const text = el.textContent?.trim() || '';
+      // Get position relative to the scrollable container
+      const rect = el.getBoundingClientRect();
+      const containerRect = renderedEl.getBoundingClientRect();
+      const top = rect.top - containerRect.top + renderedEl.scrollTop;
+      positions.push({ text, top, element: el });
+    });
+
+    return positions;
+  }, []);
+
+  // Synchronized scrolling - syncs by finding nearest heading anchor point
   const syncScroll = useCallback((source: 'source' | 'rendered') => {
     if (isScrollingSyncRef.current) return;
 
@@ -437,22 +489,191 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
 
     isScrollingSyncRef.current = true;
 
-    const sourcePanel = source === 'source' ? sourceEl : renderedEl;
-    const targetPanel = source === 'source' ? renderedEl : sourceEl;
+    const headings = extractHeadings(editedContent);
+    const previewHeadings = getPreviewHeadingPositions(renderedEl);
 
-    const sourceMaxScroll = sourcePanel.scrollHeight - sourcePanel.clientHeight;
-    const targetMaxScroll = targetPanel.scrollHeight - targetPanel.clientHeight;
+    if (source === 'source') {
+      // Scrolling from source editor to preview
+      const lineHeight = getLineHeight();
+      const padding = 24; // 1.5rem padding
 
-    if (sourceMaxScroll <= 0 || targetMaxScroll <= 0) {
-      isScrollingSyncRef.current = false;
-      return;
+      // Calculate which line is at the center of the visible editor
+      const visibleTop = sourceEl.scrollTop;
+      const visibleCenter = visibleTop + sourceEl.clientHeight / 2;
+      const centerLineIndex = Math.floor((visibleCenter - padding) / lineHeight);
+
+      // If no headings, fall back to ratio-based sync
+      if (headings.length === 0 || previewHeadings.length === 0) {
+        const lines = editedContent.split('\n');
+        const totalLines = lines.length;
+        if (totalLines > 1) {
+          const lineFraction = Math.max(0, Math.min(1, centerLineIndex / (totalLines - 1)));
+          const previewMaxScroll = renderedEl.scrollHeight - renderedEl.clientHeight;
+          const targetScrollCenter = lineFraction * renderedEl.scrollHeight;
+          const targetScrollTop = targetScrollCenter - renderedEl.clientHeight / 2;
+          renderedEl.scrollTop = Math.max(0, Math.min(previewMaxScroll, targetScrollTop));
+        }
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            isScrollingSyncRef.current = false;
+          });
+        });
+        return;
+      }
+
+      // Find the two headings that bracket our current position
+      let beforeHeading: typeof headings[0] | null = null;
+      let afterHeading: typeof headings[0] | null = null;
+
+      for (let i = 0; i < headings.length; i++) {
+        if (headings[i].lineIndex <= centerLineIndex) {
+          beforeHeading = headings[i];
+        }
+        if (headings[i].lineIndex > centerLineIndex && !afterHeading) {
+          afterHeading = headings[i];
+          break;
+        }
+      }
+
+      // Find corresponding headings in preview by text matching
+      const findPreviewHeading = (heading: typeof headings[0]) => {
+        return previewHeadings.find(ph =>
+          ph.text.toLowerCase() === heading.text.toLowerCase()
+        );
+      };
+
+      let targetScrollTop: number;
+
+      if (beforeHeading && afterHeading) {
+        // Interpolate between two headings
+        const beforePreview = findPreviewHeading(beforeHeading);
+        const afterPreview = findPreviewHeading(afterHeading);
+
+        if (beforePreview && afterPreview) {
+          // Calculate how far we are between the two source headings (by line)
+          const sourceRange = afterHeading.lineIndex - beforeHeading.lineIndex;
+          const sourceProgress = (centerLineIndex - beforeHeading.lineIndex) / sourceRange;
+
+          // Apply same progress to preview heading positions
+          const previewRange = afterPreview.top - beforePreview.top;
+          const targetCenter = beforePreview.top + (sourceProgress * previewRange);
+          targetScrollTop = targetCenter - renderedEl.clientHeight / 2;
+        } else if (beforePreview) {
+          // Only have before heading - estimate based on lines after it
+          const linesAfterHeading = centerLineIndex - beforeHeading.lineIndex;
+          const estimatedOffset = linesAfterHeading * lineHeight * 0.5; // Rough estimate
+          targetScrollTop = beforePreview.top + estimatedOffset - renderedEl.clientHeight / 2;
+        } else {
+          // Fall back to ratio
+          const lines = editedContent.split('\n');
+          const lineFraction = centerLineIndex / (lines.length - 1);
+          targetScrollTop = lineFraction * renderedEl.scrollHeight - renderedEl.clientHeight / 2;
+        }
+      } else if (beforeHeading) {
+        // We're after all headings
+        const beforePreview = findPreviewHeading(beforeHeading);
+        if (beforePreview) {
+          const linesAfterHeading = centerLineIndex - beforeHeading.lineIndex;
+          const totalLinesAfter = editedContent.split('\n').length - beforeHeading.lineIndex;
+          const remainingContent = renderedEl.scrollHeight - beforePreview.top;
+          const progress = linesAfterHeading / totalLinesAfter;
+          targetScrollTop = beforePreview.top + (progress * remainingContent) - renderedEl.clientHeight / 2;
+        } else {
+          const lines = editedContent.split('\n');
+          const lineFraction = centerLineIndex / (lines.length - 1);
+          targetScrollTop = lineFraction * renderedEl.scrollHeight - renderedEl.clientHeight / 2;
+        }
+      } else if (afterHeading) {
+        // We're before all headings
+        const afterPreview = findPreviewHeading(afterHeading);
+        if (afterPreview) {
+          const progress = centerLineIndex / afterHeading.lineIndex;
+          targetScrollTop = progress * afterPreview.top - renderedEl.clientHeight / 2;
+        } else {
+          const lines = editedContent.split('\n');
+          const lineFraction = centerLineIndex / (lines.length - 1);
+          targetScrollTop = lineFraction * renderedEl.scrollHeight - renderedEl.clientHeight / 2;
+        }
+      } else {
+        // No headings found - use ratio
+        const lines = editedContent.split('\n');
+        const lineFraction = centerLineIndex / (lines.length - 1);
+        targetScrollTop = lineFraction * renderedEl.scrollHeight - renderedEl.clientHeight / 2;
+      }
+
+      const previewMaxScroll = renderedEl.scrollHeight - renderedEl.clientHeight;
+      renderedEl.scrollTop = Math.max(0, Math.min(previewMaxScroll, targetScrollTop));
+    } else {
+      // Scrolling from preview to source editor - use reverse logic
+      const previewScrollCenter = renderedEl.scrollTop + renderedEl.clientHeight / 2;
+
+      // Find bracketing headings in preview
+      let beforePreview: typeof previewHeadings[0] | null = null;
+      let afterPreview: typeof previewHeadings[0] | null = null;
+
+      for (let i = 0; i < previewHeadings.length; i++) {
+        if (previewHeadings[i].top <= previewScrollCenter) {
+          beforePreview = previewHeadings[i];
+        }
+        if (previewHeadings[i].top > previewScrollCenter && !afterPreview) {
+          afterPreview = previewHeadings[i];
+          break;
+        }
+      }
+
+      const findSourceHeading = (previewHeading: typeof previewHeadings[0]) => {
+        return headings.find(h =>
+          h.text.toLowerCase() === previewHeading.text.toLowerCase()
+        );
+      };
+
+      const lineHeight = getLineHeight();
+      const padding = 24;
+      let targetLineIndex: number;
+
+      if (beforePreview && afterPreview) {
+        const beforeSource = findSourceHeading(beforePreview);
+        const afterSource = findSourceHeading(afterPreview);
+
+        if (beforeSource && afterSource) {
+          const previewRange = afterPreview.top - beforePreview.top;
+          const previewProgress = (previewScrollCenter - beforePreview.top) / previewRange;
+          const sourceRange = afterSource.lineIndex - beforeSource.lineIndex;
+          targetLineIndex = beforeSource.lineIndex + (previewProgress * sourceRange);
+        } else {
+          const previewFraction = previewScrollCenter / renderedEl.scrollHeight;
+          targetLineIndex = previewFraction * (editedContent.split('\n').length - 1);
+        }
+      } else if (beforePreview) {
+        const beforeSource = findSourceHeading(beforePreview);
+        if (beforeSource) {
+          const remainingPreview = renderedEl.scrollHeight - beforePreview.top;
+          const progress = (previewScrollCenter - beforePreview.top) / remainingPreview;
+          const remainingLines = editedContent.split('\n').length - beforeSource.lineIndex;
+          targetLineIndex = beforeSource.lineIndex + (progress * remainingLines);
+        } else {
+          const previewFraction = previewScrollCenter / renderedEl.scrollHeight;
+          targetLineIndex = previewFraction * (editedContent.split('\n').length - 1);
+        }
+      } else if (afterPreview) {
+        const afterSource = findSourceHeading(afterPreview);
+        if (afterSource) {
+          const progress = previewScrollCenter / afterPreview.top;
+          targetLineIndex = progress * afterSource.lineIndex;
+        } else {
+          const previewFraction = previewScrollCenter / renderedEl.scrollHeight;
+          targetLineIndex = previewFraction * (editedContent.split('\n').length - 1);
+        }
+      } else {
+        const previewFraction = previewScrollCenter / renderedEl.scrollHeight;
+        targetLineIndex = previewFraction * (editedContent.split('\n').length - 1);
+      }
+
+      const targetScrollCenter = padding + (targetLineIndex * lineHeight);
+      const sourceMaxScroll = sourceEl.scrollHeight - sourceEl.clientHeight;
+      const targetScrollTop = targetScrollCenter - sourceEl.clientHeight / 2;
+      sourceEl.scrollTop = Math.max(0, Math.min(sourceMaxScroll, targetScrollTop));
     }
-
-    // Calculate scroll ratio (0 = top, 1 = bottom)
-    const scrollRatio = sourcePanel.scrollTop / sourceMaxScroll;
-
-    // Apply same ratio to target
-    targetPanel.scrollTop = scrollRatio * targetMaxScroll;
 
     // Reset flag after a short delay to allow the scroll event to settle
     requestAnimationFrame(() => {
@@ -460,7 +681,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
         isScrollingSyncRef.current = false;
       });
     });
-  }, []);
+  }, [editedContent, getLineHeight, extractHeadings, getPreviewHeadingPositions]);
 
   const handleSourceScroll = useCallback(() => {
     syncScroll('source');
@@ -804,6 +1025,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
               contentRef={contentRef}
               onFormat={handleFormatting}
               onRequestSelection={getSelection}
+              filePath={filePath}
             />
           )}
           <div className="source-editor-container">
@@ -822,6 +1044,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
               onSelect={handleSelectionChange}
               onClick={handleSelectionChange}
               spellCheck={false}
+              wrap="off"
             />
           </div>
         </div>

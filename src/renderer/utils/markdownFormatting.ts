@@ -269,14 +269,50 @@ export function insertImage(
   altText: string = 'image'
 ): FormattingResult {
   const image = `![${altText}](${url})`;
+  const before = content.substring(0, selectionStart);
+  const after = content.substring(selectionEnd);
 
-  const newContent =
-    content.substring(0, selectionStart) + image + content.substring(selectionEnd);
+  // Determine what prefix we need (ensure blank line before for block rendering)
+  let prefix = '';
+  if (before.length > 0) {
+    const lastTwoChars = before.slice(-2);
+    if (lastTwoChars === '\n\n') {
+      // Already has blank line
+      prefix = '';
+    } else if (before.endsWith('\n')) {
+      // Has one newline, add another for blank line
+      prefix = '\n';
+    } else {
+      // No newline, add two for blank line
+      prefix = '\n\n';
+    }
+  }
+
+  // Determine what suffix we need (ensure blank line after for block rendering)
+  let suffix = '';
+  if (after.length > 0) {
+    const firstTwoChars = after.slice(0, 2);
+    if (firstTwoChars === '\n\n') {
+      // Already has blank line
+      suffix = '';
+    } else if (after.startsWith('\n')) {
+      // Has one newline, add another for blank line
+      suffix = '\n';
+    } else {
+      // No newline, add two for blank line
+      suffix = '\n\n';
+    }
+  }
+
+  const insertion = prefix + image + suffix;
+  const newContent = before + insertion + after;
+  const imageStart = selectionStart + prefix.length;
+  const imageEnd = imageStart + image.length;
 
   return {
     newContent,
-    newSelectionStart: selectionStart,
-    newSelectionEnd: selectionStart + image.length,
+    newSelectionStart: imageStart,
+    newSelectionEnd: imageEnd,
   };
 }
 

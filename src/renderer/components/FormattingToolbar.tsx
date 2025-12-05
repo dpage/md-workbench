@@ -34,6 +34,7 @@ interface FormattingToolbarProps {
   contentRef: React.RefObject<string>;
   onFormat: (result: FormattingResult) => void;
   onRequestSelection: () => { start: number; end: number; text: string };
+  filePath?: string;
 }
 
 interface DropdownState {
@@ -51,6 +52,7 @@ const FormattingToolbar: React.FC<FormattingToolbarProps> = React.memo(({
   contentRef,
   onFormat,
   onRequestSelection,
+  filePath,
 }) => {
   const [dropdowns, setDropdowns] = useState<DropdownState>({
     style: false,
@@ -237,6 +239,14 @@ const FormattingToolbar: React.FC<FormattingToolbarProps> = React.memo(({
     setImageUrl('');
     setImageAlt('');
   }, [getContent, getSelection, onFormat, imageUrl, imageAlt]);
+
+  const handleBrowseImage = useCallback(async () => {
+    if (!filePath) return;
+    const result = await window.electronAPI.browseImageFile(filePath);
+    if (!result.canceled && result.relativePath) {
+      setImageUrl(result.relativePath);
+    }
+  }, [filePath]);
 
   const handleTableSubmit = useCallback(() => {
     const sel = getSelection();
@@ -521,14 +531,25 @@ const FormattingToolbar: React.FC<FormattingToolbarProps> = React.memo(({
             </div>
             <div className="formatting-dialog-body">
               <label>
-                Image URL
-                <input
-                  type="text"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://example.com/image.png"
-                  autoFocus
-                />
+                Image URL or Path
+                <div className="formatting-input-with-button">
+                  <input
+                    type="text"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://example.com/image.png or ./image.png"
+                    autoFocus
+                  />
+                  {filePath && (
+                    <button
+                      type="button"
+                      className="formatting-dialog-btn secondary"
+                      onClick={handleBrowseImage}
+                    >
+                      Browse...
+                    </button>
+                  )}
+                </div>
               </label>
               <label>
                 Alt Text

@@ -916,6 +916,37 @@ ipcMain.handle('open-file-dialog', async () => {
   await openFileDialog();
 });
 
+ipcMain.handle('browse-image-file', async (_, currentFilePath: string) => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [
+      {
+        name: 'Images',
+        extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'],
+      },
+    ],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { canceled: true };
+  }
+
+  const imagePath = result.filePaths[0];
+  const currentDir = path.dirname(currentFilePath);
+
+  // Calculate relative path from current file's directory to the image
+  const relativePath = path.relative(currentDir, imagePath);
+
+  // Use forward slashes for markdown compatibility
+  const markdownPath = relativePath.split(path.sep).join('/');
+
+  return {
+    canceled: false,
+    absolutePath: imagePath,
+    relativePath: markdownPath,
+  };
+});
+
 ipcMain.handle('read-file', async (_, filePath: string) => {
   try {
     const content = await fs.promises.readFile(filePath, 'utf-8');

@@ -67,6 +67,11 @@ declare global {
       };
       openFileDialog: () => Promise<void>;
       readFile: (filePath: string) => Promise<FileData>;
+      browseImageFile: (currentFilePath: string) => Promise<{
+        canceled: boolean;
+        absolutePath?: string;
+        relativePath?: string;
+      }>;
       getTheme: () => Promise<Theme>;
       setTheme: (theme: ThemeSetting) => Promise<void>;
       saveSession: (data: SessionData) => Promise<void>;

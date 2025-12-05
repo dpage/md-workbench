@@ -62,6 +62,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // File operations
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
+  browseImageFile: (currentFilePath: string) =>
+    ipcRenderer.invoke('browse-image-file', currentFilePath) as Promise<{
+      canceled: boolean;
+      absolutePath?: string;
+      relativePath?: string;
+    }>,
 
   // Theme operations
   getTheme: () => ipcRenderer.invoke('get-theme') as Promise<Theme>,
