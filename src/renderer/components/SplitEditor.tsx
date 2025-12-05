@@ -248,13 +248,18 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     onContentChange?.(entry.content);
     setPreviewContent(entry.content);
 
+    // Trigger auto-save if enabled
+    if (autoSave && onAutoSave) {
+      onAutoSave();
+    }
+
     // Restore selection
     requestAnimationFrame(() => {
       textarea.setSelectionRange(entry.selectionStart, entry.selectionEnd);
       setSelectionStart(entry.selectionStart);
       setSelectionEnd(entry.selectionEnd);
     });
-  }, [editedContent, selectionStart, selectionEnd, onContentChange]);
+  }, [editedContent, selectionStart, selectionEnd, onContentChange, autoSave, onAutoSave]);
 
   // Redo function
   const handleRedo = useCallback(() => {
@@ -287,13 +292,18 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     onContentChange?.(entry.content);
     setPreviewContent(entry.content);
 
+    // Trigger auto-save if enabled
+    if (autoSave && onAutoSave) {
+      onAutoSave();
+    }
+
     // Restore selection
     requestAnimationFrame(() => {
       textarea.setSelectionRange(entry.selectionStart, entry.selectionEnd);
       setSelectionStart(entry.selectionStart);
       setSelectionEnd(entry.selectionEnd);
     });
-  }, [editedContent, selectionStart, selectionEnd, onContentChange]);
+  }, [editedContent, selectionStart, selectionEnd, onContentChange, autoSave, onAutoSave]);
 
   // Cleanup timers on unmount
   useEffect(() => {
