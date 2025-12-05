@@ -17,7 +17,10 @@ import React, {
 } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import remarkEmoji from 'remark-emoji';
 import rehypeRaw from 'rehype-raw';
+import rehypeKatex from 'rehype-katex';
 import mermaid from 'mermaid';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import {
@@ -28,6 +31,7 @@ import remarkAdmonitions, {
   AdmonitionType,
   preprocessAdmonitions,
 } from '../plugins/remarkAdmonitions';
+import 'katex/dist/katex.min.css';
 
 interface ScrollPosition {
   top: number;
@@ -56,6 +60,86 @@ mermaid.initialize({
   theme: 'dark',
   securityLevel: 'loose',
 });
+
+// Generate Table of Contents from headings
+// Replaces [TOC], [[toc]], or <!-- toc --> markers with generated TOC
+function generateTableOfContents(content: string): string {
+  // Check if content has a TOC marker
+  const tocMarkerRegex = /^\s*(\[TOC\]|\[\[toc\]\]|<!-- *toc *-->)\s*$/gim;
+  if (!tocMarkerRegex.test(content)) {
+    return content;
+  }
+
+  // Extract headings from the content
+  const headingRegex = /^(#{1,6})\s+(.+)$/gm;
+  const headings: Array<{ level: number; text: string; slug: string }> = [];
+
+  let match;
+  while ((match = headingRegex.exec(content)) !== null) {
+    const level = match[1].length;
+    const text = match[2].trim();
+    // Generate slug from heading text
+    const slug = text
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+    headings.push({ level, text, slug });
+  }
+
+  if (headings.length === 0) {
+    return content.replace(tocMarkerRegex, '');
+  }
+
+  // Find minimum heading level to normalize indentation
+  const minLevel = Math.min(...headings.map((h) => h.level));
+
+  // Generate TOC markdown
+  const tocLines = headings.map((h) => {
+    const indent = '  '.repeat(h.level - minLevel);
+    return `${indent}- [${h.text}](#${h.slug})`;
+  });
+
+  const toc = `<nav class="table-of-contents">\n\n**Table of Contents**\n\n${tocLines.join('\n')}\n\n</nav>`;
+
+  // Replace TOC markers with generated TOC
+  return content.replace(tocMarkerRegex, toc);
+}
+
+// Convert subscript (~text~) and superscript (^text^) to HTML
+// Only matches single-word or simple text patterns to avoid false positives
+function preprocessSubSuperscript(content: string): string {
+  // Skip processing inside code blocks
+  const lines = content.split('\n');
+  const result: string[] = [];
+  let inCodeBlock = false;
+
+  for (const line of lines) {
+    // Track code block state
+    if (line.match(/^```|^~~~/)) {
+      inCodeBlock = !inCodeBlock;
+      result.push(line);
+      continue;
+    }
+
+    if (inCodeBlock) {
+      result.push(line);
+      continue;
+    }
+
+    // Process subscript: ~text~ -> <sub>text</sub>
+    // Match ~text~ but not ~~text~~ (strikethrough)
+    let processed = line.replace(/(?<!~)~([^~\s][^~]*)~(?!~)/g, '<sub>$1</sub>');
+
+    // Process superscript: ^text^ -> <sup>text</sup>
+    // Match ^text^ ensuring it's not part of other syntax
+    processed = processed.replace(/\^([^\^\s][^\^]*)\^/g, '<sup>$1</sup>');
+
+    result.push(processed);
+  }
+
+  return result.join('\n');
+}
 
 // Preprocess indented code fences (4+ spaces) to be recognized by the parser
 // CommonMark only allows 0-3 spaces of indentation for code fences
@@ -810,8 +894,13 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
     <div className="markdown-viewer" ref={scrollContainerRef}>
       <div className="markdown-content" ref={contentRef}>
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkAdmonitions]}
-          rehypePlugins={[rehypeRaw]}
+          remarkPlugins={[
+            remarkGfm,
+            remarkMath,
+            remarkEmoji,
+            remarkAdmonitions,
+          ]}
+          rehypePlugins={[rehypeRaw, rehypeKatex]}
           remarkRehypeOptions={{
             handlers: {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -833,7 +922,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
           }}
           components={components}
         >
-          {preprocessAdmonitions(preprocessIndentedCodeFences(content))}
+          {preprocessAdmonitions(preprocessIndentedCodeFences(preprocessSubSuperscript(generateTableOfContents(content))))}
         </ReactMarkdown>
       </div>
     </div>

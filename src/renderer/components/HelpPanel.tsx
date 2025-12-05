@@ -238,10 +238,14 @@ const HelpContent: React.FC = () => (
     <section>
       <h2>Markdown Features</h2>
       <ul>
-        <li><strong>GitHub Flavored Markdown</strong> — Tables, task lists, strikethrough, and more</li>
+        <li><strong>GitHub Flavored Markdown</strong> — Tables, task lists, strikethrough, footnotes, and more</li>
         <li><strong>Syntax Highlighting</strong> — Code blocks with language-specific highlighting</li>
         <li><strong>Mermaid Diagrams</strong> — Flowcharts, sequence diagrams, and more</li>
         <li><strong>Admonitions</strong> — Note, warning, tip, and other callout blocks</li>
+        <li><strong>Math/LaTeX</strong> — Inline and block math equations with KaTeX</li>
+        <li><strong>Emoji Shortcodes</strong> — Use :emoji_name: syntax for emoji</li>
+        <li><strong>Table of Contents</strong> — Auto-generated TOC with [TOC] marker</li>
+        <li><strong>Subscript/Superscript</strong> — Use ~sub~ and ^sup^ syntax</li>
         <li><strong>Auto-reload</strong> — Files automatically refresh when changed externally</li>
         <li><strong>Dark/Light Theme</strong> — Follows your system preference or manual selection</li>
       </ul>
@@ -399,6 +403,75 @@ pie title Pets
     "Cats" : 85
     "Birds" : 15
 \`\`\``}</pre>
+    </section>
+
+    <section>
+      <h2>Math/LaTeX</h2>
+      <p>Write mathematical equations using LaTeX syntax:</p>
+      <pre className="help-code">{`Inline math: $E = mc^2$
+
+Block math (display mode):
+$$
+\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}
+$$
+
+$$
+\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}
+$$`}</pre>
+    </section>
+
+    <section>
+      <h2>Footnotes</h2>
+      <pre className="help-code">{`Here is a sentence with a footnote.[^1]
+
+Another reference to a footnote.[^note]
+
+[^1]: This is the footnote content.
+[^note]: Footnotes can have any identifier.`}</pre>
+    </section>
+
+    <section>
+      <h2>Emoji Shortcodes</h2>
+      <pre className="help-code">{`Use emoji shortcodes:
+:smile: :heart: :thumbsup: :rocket:
+:warning: :bulb: :memo: :star:
+
+Common shortcodes:
+- :+1: or :thumbsup: — 👍
+- :-1: or :thumbsdown: — 👎
+- :heart: — ❤️
+- :star: — ⭐
+- :fire: — 🔥
+- :bug: — 🐛`}</pre>
+    </section>
+
+    <section>
+      <h2>Table of Contents</h2>
+      <p>Auto-generate a table of contents from headings:</p>
+      <pre className="help-code">{`Add one of these markers where you want the TOC:
+
+[TOC]
+
+or
+
+[[toc]]
+
+or
+
+<!-- toc -->
+
+The TOC will be generated from all headings (h1-h6).`}</pre>
+    </section>
+
+    <section>
+      <h2>Subscript &amp; Superscript</h2>
+      <pre className="help-code">{`Subscript: H~2~O (water)
+Superscript: E = mc^2^
+
+Examples:
+- CO~2~ — Carbon dioxide
+- x^2^ + y^2^ = z^2^
+- H~2~SO~4~ — Sulfuric acid`}</pre>
     </section>
 
     <section>

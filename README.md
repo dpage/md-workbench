@@ -33,8 +33,12 @@ A modern, feature-rich file viewer and editor built with Electron and React, wit
   - GitHub Flavored Markdown (GFM)
   - Syntax-highlighted code blocks
   - Mermaid diagrams
-  - Tables, task lists, and more
+  - Tables, task lists, footnotes, and more
   - Admonition blocks (note, warning, tip, etc.)
+  - Math/LaTeX equations with KaTeX
+  - Emoji shortcodes (:smile:, :rocket:, etc.)
+  - Auto-generated Table of Contents
+  - Subscript (~sub~) and superscript (^sup^)
 
 - **Navigation**
   - Tabbed interface for multiple documents
