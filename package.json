@@ -17,6 +17,7 @@
     "generate-icons": "node scripts/generate-icons.js",
     "package:win": "electron-builder --win",
     "package:mac": "electron-builder --mac",
+    "package:mac-mas": "electron-builder --mac --config.mac.target=mas",
     "package:linux": "electron-builder --linux",
     "package:all": "electron-builder --win --mac --linux"
   },
@@ -54,7 +55,16 @@
         "zip"
       ],
       "icon": "assets/icons/icon.icns",
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "mas": {
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "hardenedRuntime": false
     },
     "linux": {
       "target": [
