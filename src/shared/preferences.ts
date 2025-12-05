@@ -29,6 +29,7 @@ export interface FileTypeDefaults {
 
 export interface Preferences {
   autoReload: boolean;
+  autoSave: boolean;
   openLinksInNewTab: boolean;
   theme: ThemeSetting;
   fileTypeDefaults: FileTypeDefaults;
@@ -51,6 +52,7 @@ export const DEFAULT_FILE_TYPE_DEFAULTS: FileTypeDefaults = {
 
 export const DEFAULT_PREFERENCES: Preferences = {
   autoReload: true,
+  autoSave: false,
   openLinksInNewTab: false,
   theme: 'system',
   fileTypeDefaults: DEFAULT_FILE_TYPE_DEFAULTS,

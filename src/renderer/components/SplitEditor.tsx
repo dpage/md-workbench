@@ -79,6 +79,8 @@ interface SplitEditorProps {
   supportsFormatting?: boolean;
   supportsRenderedView?: boolean;
   highlightLanguage?: string;
+  autoSave?: boolean;
+  onAutoSave?: () => void;
 }
 
 interface Match {
@@ -111,6 +113,8 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   supportsFormatting = true,
   supportsRenderedView = true,
   highlightLanguage = 'markdown',
+  autoSave = false,
+  onAutoSave,
 }) => {
   const [splitRatio, setSplitRatio] = useState(0.5); // 0-1, left panel width ratio
   const [isDragging, setIsDragging] = useState(false);
@@ -385,14 +389,19 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
       // Debounce the parent update to prevent App re-render cascade on every keystroke
       debouncedParentUpdate(newContent);
       // Debounce preview update - only update after 500ms of no typing
+      // Also trigger auto-save at this point if enabled
       if (previewTimerRef.current) {
         clearTimeout(previewTimerRef.current);
       }
       previewTimerRef.current = setTimeout(() => {
         setPreviewContent(newContent);
+        // Auto-save after the debounce period (same timing as preview update)
+        if (autoSave && onAutoSave) {
+          onAutoSave();
+        }
       }, 500);
     },
-    [debouncedParentUpdate]
+    [debouncedParentUpdate, autoSave, onAutoSave]
   );
 
   // Handle divider drag

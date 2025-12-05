@@ -1130,6 +1130,8 @@ const App: React.FC = () => {
                 supportsFormatting={activeTab.supportsFormatting ?? true}
                 supportsRenderedView={activeTab.supportsRenderedView ?? true}
                 highlightLanguage={activeTab.highlightLanguage}
+                autoSave={preferences.autoSave}
+                onAutoSave={handleSave}
               />
             ) : activeTab.supportsRenderedView !== false ? (
               <div className="view-mode-container">

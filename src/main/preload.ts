@@ -32,6 +32,7 @@ export interface SessionData {
 
 export interface Preferences {
   autoReload: boolean;
+  autoSave: boolean;
   openLinksInNewTab: boolean;
 }
 

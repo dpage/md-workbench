@@ -176,6 +176,20 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
                 <label className="preferences-checkbox-label">
                   <input
                     type="checkbox"
+                    checked={localPreferences.autoSave}
+                    onChange={(e) => handleChange('autoSave', e.target.checked)}
+                  />
+                  <span>Auto-save files when editing</span>
+                </label>
+                <p className="preferences-description">
+                  Automatically save files after you stop typing for a moment.
+                </p>
+              </div>
+
+              <div className="preferences-group">
+                <label className="preferences-checkbox-label">
+                  <input
+                    type="checkbox"
                     checked={localPreferences.openLinksInNewTab}
                     onChange={(e) => handleChange('openLinksInNewTab', e.target.checked)}
                   />
