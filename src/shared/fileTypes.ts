@@ -36,41 +36,41 @@ const FILE_TYPE_MAP: Record<string, FileTypeInfo> = {
   '.mdx': { type: 'markdown', label: 'MDX', highlightLanguage: 'markdown', supportsRenderedView: true, supportsFormatting: true },
 
   // JSON
-  '.json': { type: 'json', label: 'JSON', highlightLanguage: 'json', supportsRenderedView: false, supportsFormatting: false },
-  '.jsonc': { type: 'json', label: 'JSON with Comments', highlightLanguage: 'json', supportsRenderedView: false, supportsFormatting: false },
-  '.json5': { type: 'json', label: 'JSON5', highlightLanguage: 'json', supportsRenderedView: false, supportsFormatting: false },
+  '.json': { type: 'json', label: 'JSON', highlightLanguage: 'json', supportsRenderedView: false, supportsFormatting: true },
+  '.jsonc': { type: 'json', label: 'JSON with Comments', highlightLanguage: 'json', supportsRenderedView: false, supportsFormatting: true },
+  '.json5': { type: 'json', label: 'JSON5', highlightLanguage: 'json', supportsRenderedView: false, supportsFormatting: true },
 
   // YAML
-  '.yaml': { type: 'yaml', label: 'YAML', highlightLanguage: 'yaml', supportsRenderedView: false, supportsFormatting: false },
-  '.yml': { type: 'yaml', label: 'YAML', highlightLanguage: 'yaml', supportsRenderedView: false, supportsFormatting: false },
+  '.yaml': { type: 'yaml', label: 'YAML', highlightLanguage: 'yaml', supportsRenderedView: false, supportsFormatting: true },
+  '.yml': { type: 'yaml', label: 'YAML', highlightLanguage: 'yaml', supportsRenderedView: false, supportsFormatting: true },
 
   // XML
-  '.xml': { type: 'xml', label: 'XML', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: false },
-  '.svg': { type: 'xml', label: 'SVG', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: false },
-  '.xsd': { type: 'xml', label: 'XSD', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: false },
-  '.xsl': { type: 'xml', label: 'XSL', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: false },
-  '.xslt': { type: 'xml', label: 'XSLT', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: false },
-  '.plist': { type: 'xml', label: 'Property List', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: false },
+  '.xml': { type: 'xml', label: 'XML', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: true },
+  '.svg': { type: 'xml', label: 'SVG', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: true },
+  '.xsd': { type: 'xml', label: 'XSD', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: true },
+  '.xsl': { type: 'xml', label: 'XSL', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: true },
+  '.xslt': { type: 'xml', label: 'XSLT', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: true },
+  '.plist': { type: 'xml', label: 'Property List', highlightLanguage: 'xml', supportsRenderedView: false, supportsFormatting: true },
 
   // JavaScript/TypeScript
-  '.js': { type: 'javascript', label: 'JavaScript', highlightLanguage: 'javascript', supportsRenderedView: false, supportsFormatting: false },
-  '.mjs': { type: 'javascript', label: 'JavaScript Module', highlightLanguage: 'javascript', supportsRenderedView: false, supportsFormatting: false },
-  '.cjs': { type: 'javascript', label: 'CommonJS', highlightLanguage: 'javascript', supportsRenderedView: false, supportsFormatting: false },
-  '.jsx': { type: 'javascript', label: 'JSX', highlightLanguage: 'javascript', supportsRenderedView: false, supportsFormatting: false },
-  '.ts': { type: 'typescript', label: 'TypeScript', highlightLanguage: 'typescript', supportsRenderedView: false, supportsFormatting: false },
-  '.tsx': { type: 'typescript', label: 'TSX', highlightLanguage: 'typescript', supportsRenderedView: false, supportsFormatting: false },
-  '.d.ts': { type: 'typescript', label: 'TypeScript Declaration', highlightLanguage: 'typescript', supportsRenderedView: false, supportsFormatting: false },
+  '.js': { type: 'javascript', label: 'JavaScript', highlightLanguage: 'javascript', supportsRenderedView: false, supportsFormatting: true },
+  '.mjs': { type: 'javascript', label: 'JavaScript Module', highlightLanguage: 'javascript', supportsRenderedView: false, supportsFormatting: true },
+  '.cjs': { type: 'javascript', label: 'CommonJS', highlightLanguage: 'javascript', supportsRenderedView: false, supportsFormatting: true },
+  '.jsx': { type: 'javascript', label: 'JSX', highlightLanguage: 'javascript', supportsRenderedView: false, supportsFormatting: true },
+  '.ts': { type: 'typescript', label: 'TypeScript', highlightLanguage: 'typescript', supportsRenderedView: false, supportsFormatting: true },
+  '.tsx': { type: 'typescript', label: 'TSX', highlightLanguage: 'typescript', supportsRenderedView: false, supportsFormatting: true },
+  '.d.ts': { type: 'typescript', label: 'TypeScript Declaration', highlightLanguage: 'typescript', supportsRenderedView: false, supportsFormatting: true },
 
   // CSS
-  '.css': { type: 'css', label: 'CSS', highlightLanguage: 'css', supportsRenderedView: false, supportsFormatting: false },
-  '.scss': { type: 'css', label: 'SCSS', highlightLanguage: 'scss', supportsRenderedView: false, supportsFormatting: false },
-  '.sass': { type: 'css', label: 'Sass', highlightLanguage: 'scss', supportsRenderedView: false, supportsFormatting: false },
-  '.less': { type: 'css', label: 'Less', highlightLanguage: 'less', supportsRenderedView: false, supportsFormatting: false },
+  '.css': { type: 'css', label: 'CSS', highlightLanguage: 'css', supportsRenderedView: false, supportsFormatting: true },
+  '.scss': { type: 'css', label: 'SCSS', highlightLanguage: 'scss', supportsRenderedView: false, supportsFormatting: true },
+  '.sass': { type: 'css', label: 'Sass', highlightLanguage: 'scss', supportsRenderedView: false, supportsFormatting: true },
+  '.less': { type: 'css', label: 'Less', highlightLanguage: 'less', supportsRenderedView: false, supportsFormatting: true },
 
   // HTML
-  '.html': { type: 'html', label: 'HTML', highlightLanguage: 'html', supportsRenderedView: false, supportsFormatting: false },
-  '.htm': { type: 'html', label: 'HTML', highlightLanguage: 'html', supportsRenderedView: false, supportsFormatting: false },
-  '.xhtml': { type: 'html', label: 'XHTML', highlightLanguage: 'html', supportsRenderedView: false, supportsFormatting: false },
+  '.html': { type: 'html', label: 'HTML', highlightLanguage: 'html', supportsRenderedView: false, supportsFormatting: true },
+  '.htm': { type: 'html', label: 'HTML', highlightLanguage: 'html', supportsRenderedView: false, supportsFormatting: true },
+  '.xhtml': { type: 'html', label: 'XHTML', highlightLanguage: 'html', supportsRenderedView: false, supportsFormatting: true },
 
   // Python
   '.py': { type: 'python', label: 'Python', highlightLanguage: 'python', supportsRenderedView: false, supportsFormatting: false },
@@ -78,7 +78,7 @@ const FILE_TYPE_MAP: Record<string, FileTypeInfo> = {
   '.pyi': { type: 'python', label: 'Python Stub', highlightLanguage: 'python', supportsRenderedView: false, supportsFormatting: false },
 
   // SQL
-  '.sql': { type: 'sql', label: 'SQL', highlightLanguage: 'sql', supportsRenderedView: false, supportsFormatting: false },
+  '.sql': { type: 'sql', label: 'SQL', highlightLanguage: 'sql', supportsRenderedView: false, supportsFormatting: true },
 
   // Shell
   '.sh': { type: 'shell', label: 'Shell Script', highlightLanguage: 'bash', supportsRenderedView: false, supportsFormatting: false },
@@ -99,8 +99,8 @@ const FILE_TYPE_MAP: Record<string, FileTypeInfo> = {
   '.gitignore': { type: 'plaintext', label: 'Git Ignore', highlightLanguage: 'plaintext', supportsRenderedView: false, supportsFormatting: false },
   '.dockerignore': { type: 'plaintext', label: 'Docker Ignore', highlightLanguage: 'plaintext', supportsRenderedView: false, supportsFormatting: false },
   '.editorconfig': { type: 'plaintext', label: 'Editor Config', highlightLanguage: 'ini', supportsRenderedView: false, supportsFormatting: false },
-  '.prettierrc': { type: 'json', label: 'Prettier Config', highlightLanguage: 'json', supportsRenderedView: false, supportsFormatting: false },
-  '.eslintrc': { type: 'json', label: 'ESLint Config', highlightLanguage: 'json', supportsRenderedView: false, supportsFormatting: false },
+  '.prettierrc': { type: 'json', label: 'Prettier Config', highlightLanguage: 'json', supportsRenderedView: false, supportsFormatting: true },
+  '.eslintrc': { type: 'json', label: 'ESLint Config', highlightLanguage: 'json', supportsRenderedView: false, supportsFormatting: true },
 
   // Docker
   'dockerfile': { type: 'plaintext', label: 'Dockerfile', highlightLanguage: 'dockerfile', supportsRenderedView: false, supportsFormatting: false },

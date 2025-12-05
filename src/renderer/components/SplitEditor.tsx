@@ -81,6 +81,11 @@ interface SplitEditorProps {
   highlightLanguage?: string;
   autoSave?: boolean;
   onAutoSave?: () => void;
+  onFormat?: () => void;
+  formatOnSave?: boolean;
+  showColumnRuler?: boolean;
+  showCurrentLineHighlight?: boolean;
+  maxLineLength?: number;
 }
 
 interface Match {
@@ -115,6 +120,11 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   highlightLanguage = 'markdown',
   autoSave = false,
   onAutoSave,
+  onFormat,
+  formatOnSave = false,
+  showColumnRuler = true,
+  showCurrentLineHighlight = true,
+  maxLineLength = 79,
 }) => {
   const [splitRatio, setSplitRatio] = useState(0.5); // 0-1, left panel width ratio
   const [isDragging, setIsDragging] = useState(false);
@@ -130,9 +140,17 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   );
   const [selectionStart, setSelectionStart] = useState(0);
   const [selectionEnd, setSelectionEnd] = useState(0);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
   const hasScrolledToInitialMatchRef = useRef(false);
   const parentUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
+
+  // Calculate current line number based on cursor position
+  const currentLineNumber = useMemo(() => {
+    const textBeforeCursor = editedContent.substring(0, selectionStart);
+    return textBeforeCursor.split('\n').length - 1; // 0-indexed line number
+  }, [editedContent, selectionStart]);
 
   // Undo/redo stacks for formatting operations
   const undoStackRef = useRef<HistoryEntry[]>([]);
@@ -267,7 +285,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     };
   }, []);
 
-  // Handle keyboard shortcuts for undo/redo
+  // Handle keyboard shortcuts for undo/redo and formatting
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -294,9 +312,13 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
           e.preventDefault();
           handleRedo();
         }
+      } else if (e.shiftKey && e.altKey && key === 'f') {
+        // Format Document: Shift+Alt+F (matches VS Code)
+        e.preventDefault();
+        onFormat?.();
       }
     },
-    [handleUndo, handleRedo]
+    [handleUndo, handleRedo, onFormat]
   );
 
   // Track selection changes in textarea - only when selection actually changes
@@ -361,7 +383,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   const renderedRef = useRef<HTMLDivElement>(null);
   const isScrollingSyncRef = useRef(false);
 
-  // Update local content when prop changes (e.g., file reload)
+  // Update local content when prop changes (e.g., file reload or format)
   // Only reset if content changed externally (not from our own edits)
   useEffect(() => {
     // If the content prop matches our current edited content, this is just
@@ -369,12 +391,20 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     if (content === editedContent) {
       return;
     }
-    // External change (file reload) - reset everything
+    // External change (file reload or format) - push to undo stack so user can undo
+    undoStackRef.current.push({
+      content: editedContent,
+      selectionStart: textareaRef.current?.selectionStart ?? 0,
+      selectionEnd: textareaRef.current?.selectionEnd ?? 0,
+    });
+    // Limit undo stack size
+    if (undoStackRef.current.length > 100) {
+      undoStackRef.current.shift();
+    }
+    // Clear redo stack since we have a new "branch" in history
+    redoStackRef.current = [];
     setEditedContent(content);
     setPreviewContent(content);
-    // Clear undo/redo stacks on external file changes
-    undoStackRef.current = [];
-    redoStackRef.current = [];
   }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Report match index changes to parent
@@ -397,11 +427,15 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
         setPreviewContent(newContent);
         // Auto-save after the debounce period (same timing as preview update)
         if (autoSave && onAutoSave) {
+          // Format before save if enabled
+          if (formatOnSave && onFormat) {
+            onFormat();
+          }
           onAutoSave();
         }
       }, 500);
     },
-    [debouncedParentUpdate, autoSave, onAutoSave]
+    [debouncedParentUpdate, autoSave, onAutoSave, formatOnSave, onFormat]
   );
 
   // Handle divider drag
@@ -694,12 +728,14 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
 
   const handleSourceScroll = useCallback(() => {
     syncScroll('source');
-    // Also sync highlight overlay
+    // Also sync highlight overlay and track scroll position
     const textarea = textareaRef.current;
     const highlight = highlightRef.current;
     if (textarea && highlight) {
       highlight.scrollTop = textarea.scrollTop;
       highlight.scrollLeft = textarea.scrollLeft;
+      setScrollTop(textarea.scrollTop);
+      setScrollLeft(textarea.scrollLeft);
     }
   }, [syncScroll]);
 
@@ -1029,15 +1065,76 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
           className="split-panel split-panel-source"
           style={{ width: supportsRenderedView ? `${splitRatio * 100}%` : '100%' }}
         >
-          {supportsFormatting && (
-            <FormattingToolbar
-              contentRef={contentRef}
-              onFormat={handleFormatting}
-              onRequestSelection={getSelection}
-              filePath={filePath}
-            />
-          )}
+          <div className="editor-toolbars">
+            {supportsFormatting && highlightLanguage === 'markdown' && (
+              <FormattingToolbar
+                contentRef={contentRef}
+                onFormat={handleFormatting}
+                onRequestSelection={getSelection}
+                filePath={filePath}
+              />
+            )}
+            {onFormat && (
+              <button
+                className="format-document-button"
+                onClick={() => {
+                  onFormat();
+                  // Refocus textarea after formatting so undo shortcut works
+                  setTimeout(() => textareaRef.current?.focus(), 0);
+                }}
+                title="Format Document (Shift+Alt+F)"
+                aria-label="Format Document"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M2 3H14"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M4 6H12"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M2 9H14"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M4 12H10"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
           <div className="source-editor-container">
+            {showColumnRuler && (
+              <div
+                className="column-ruler"
+                style={{ left: `calc(1.5rem + ${maxLineLength}ch - ${scrollLeft}px)` }}
+              />
+            )}
+            {showCurrentLineHighlight && (
+              <div
+                className="current-line-highlight"
+                style={{
+                  top: `calc(1.5rem + ${currentLineNumber} * 1.6 * 0.875rem - ${scrollTop}px)`,
+                }}
+              />
+            )}
             <div
               ref={highlightRef}
               className={`source-editor-highlight ${matches.length === 0 ? 'syntax-highlighted' : ''}`}

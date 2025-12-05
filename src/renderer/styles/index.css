@@ -1367,6 +1367,33 @@ body {
   overflow: hidden;
 }
 
+/* Column Ruler - vertical line at max line length */
+.column-ruler {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: var(--accent-primary);
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 5;
+  /* Must use same font as editor for accurate ch unit calculation */
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 0.875rem;
+}
+
+/* Current Line Highlight - horizontal band for current line */
+.current-line-highlight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(1.6 * 0.875rem);
+  background-color: var(--accent-primary);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 5;
+}
+
 /* Source Editor Highlight Overlay */
 .source-editor-highlight {
   position: absolute;
@@ -1384,6 +1411,7 @@ body {
   color: transparent;
   pointer-events: none;
   background-color: var(--bg-secondary);
+  z-index: 1;
 }
 
 /* Hide scrollbars on highlight overlay - textarea handles scrolling */
@@ -1415,6 +1443,7 @@ body {
   line-height: 1.6;
   tab-size: 4;
   overflow: auto;
+  z-index: 10;
 }
 
 .source-editor::-webkit-scrollbar {
@@ -2178,14 +2207,52 @@ body {
   background-color: var(--scrollbar-thumb-hover);
 }
 
+/* Editor Toolbars Container */
+.editor-toolbars {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.editor-toolbars:empty {
+  display: none;
+}
+
+.format-document-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 4px 8px 4px auto;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.format-document-button:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.format-document-button:active {
+  background-color: var(--bg-active);
+}
+
 /* Formatting Toolbar Styles */
 .formatting-toolbar {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  background-color: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-color);
+  background-color: transparent;
   flex-shrink: 0;
   flex-wrap: wrap;
 }
@@ -3060,4 +3127,120 @@ body {
 
 .preferences-file-type-options .preferences-radio-label {
   font-size: 13px;
+}
+
+/* Toast notifications */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  max-width: 500px;
+  animation: toast-slide-in 0.2s ease-out;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.toast-error {
+  border-color: #e53935;
+}
+
+.toast-error .toast-icon {
+  color: #e53935;
+}
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.toast-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.toast-close:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Preferences select and input */
+.preferences-select {
+  width: 100%;
+  max-width: 200px;
+  padding: 8px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.preferences-select:focus {
+  border-color: var(--accent-primary);
+}
+
+.preferences-input {
+  width: 100%;
+  max-width: 100px;
+  padding: 8px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.preferences-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.preferences-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.preferences-input[type="number"]::-webkit-inner-spin-button,
+.preferences-input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }

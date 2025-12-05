@@ -20,6 +20,7 @@ import FolderPanel from './components/FolderPanel';
 import PreferencesPanel from './components/PreferencesPanel';
 import { Preferences, DEFAULT_PREFERENCES } from '../shared/preferences';
 import { FileType } from '../shared/fileTypes';
+import { formatDocument, canFormatDocument } from './utils/formatters';
 
 interface FileData {
   filePath: string;
@@ -125,6 +126,7 @@ declare global {
         }) => void
       ) => () => void;
       onShowPreferences: (callback: () => void) => () => void;
+      onFormatDocument: (callback: () => void) => () => void;
     };
   }
 }
@@ -150,6 +152,7 @@ const App: React.FC = () => {
   const [showPreferences, setShowPreferences] = useState(false);
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [currentFolder, setCurrentFolder] = useState<FolderData | null>(null);
+  const [formatError, setFormatError] = useState<string | null>(null);
 
   // Search state for view mode (non-edit mode)
   const [viewSearchQuery, setViewSearchQuery] = useState('');
@@ -574,6 +577,74 @@ const App: React.FC = () => {
     document.execCommand('paste');
   }, []);
 
+  // Format document
+  const handleFormat = useCallback(async () => {
+    const currentTabId = activeTabIdRef.current;
+    if (!currentTabId) return;
+
+    const currentTab = tabsRef.current.find((tab) => tab.id === currentTabId);
+    if (!currentTab || !currentTab.editMode) return;
+
+    const fileType = (currentTab.fileType || 'plaintext') as FileType;
+    if (!canFormatDocument(fileType)) return;
+
+    try {
+      const result = await formatDocument(
+        currentTab.content,
+        fileType,
+        preferencesRef.current.formatting
+      );
+
+      if (result.success && result.content) {
+        // Clear any previous error
+        setFormatError(null);
+
+        // Update content
+        const originalContent =
+          currentTab.originalContent !== undefined
+            ? currentTab.originalContent
+            : currentTab.content;
+        const isDirty = result.content !== originalContent;
+
+        setTabs((prev) =>
+          prev.map((tab) =>
+            tab.id === currentTabId
+              ? { ...tab, content: result.content!, isDirty }
+              : tab
+          )
+        );
+
+        // Auto-save after format if enabled and content changed
+        if (preferencesRef.current.autoSave && isDirty && currentTab.filePath) {
+          try {
+            await window.electronAPI.saveFile({
+              filePath: currentTab.filePath,
+              content: result.content,
+            });
+            // Mark as saved
+            setTabs((prev) =>
+              prev.map((tab) =>
+                tab.id === currentTabId
+                  ? { ...tab, isDirty: false, originalContent: result.content }
+                  : tab
+              )
+            );
+          } catch (error) {
+            console.error('Failed to auto-save after format:', error);
+          }
+        }
+      } else if (result.error) {
+        setFormatError(result.error);
+        // Auto-dismiss error after 5 seconds
+        setTimeout(() => setFormatError(null), 5000);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Formatting failed';
+      setFormatError(message);
+      setTimeout(() => setFormatError(null), 5000);
+    }
+  }, []);
+
   // Search operations
   const handleFind = useCallback(() => {
     const currentTab = tabsRef.current.find(
@@ -986,6 +1057,8 @@ const App: React.FC = () => {
       window.electronAPI?.onFolderClosed(handleFolderClosed);
     const unsubscribeShowPreferences =
       window.electronAPI?.onShowPreferences(handleShowPreferences);
+    const unsubscribeFormatDocument =
+      window.electronAPI?.onFormatDocument(handleFormat);
 
     return () => {
       unsubscribeFileOpened?.();
@@ -1001,6 +1074,7 @@ const App: React.FC = () => {
       unsubscribeFolderOpened?.();
       unsubscribeFolderClosed?.();
       unsubscribeShowPreferences?.();
+      unsubscribeFormatDocument?.();
     };
   }, [
     handleFileOpened,
@@ -1016,6 +1090,7 @@ const App: React.FC = () => {
     handleFolderOpened,
     handleFolderClosed,
     handleShowPreferences,
+    handleFormat,
   ]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -1132,6 +1207,11 @@ const App: React.FC = () => {
                 highlightLanguage={activeTab.highlightLanguage}
                 autoSave={preferences.autoSave}
                 onAutoSave={handleSave}
+                onFormat={handleFormat}
+                formatOnSave={preferences.formatting?.formatOnSave ?? false}
+                showColumnRuler={preferences.editor?.showColumnRuler ?? true}
+                showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
+                maxLineLength={preferences.formatting?.maxLineLength ?? 79}
               />
             ) : activeTab.supportsRenderedView !== false ? (
               <div className="view-mode-container">
@@ -1200,6 +1280,49 @@ const App: React.FC = () => {
         preferences={preferences}
         onPreferencesChange={handlePreferencesChange}
       />
+      {formatError && (
+        <div className="toast toast-error">
+          <span className="toast-icon">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle cx="8" cy="8" r="6.25" stroke="currentColor" strokeWidth="1.5" />
+              <path
+                d="M8 4.5V8.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+              <circle cx="8" cy="11" r="0.75" fill="currentColor" />
+            </svg>
+          </span>
+          <span className="toast-message">{formatError}</span>
+          <button
+            className="toast-close"
+            onClick={() => setFormatError(null)}
+            aria-label="Dismiss"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M3 3L9 9M9 3L3 9"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

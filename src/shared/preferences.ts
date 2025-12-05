@@ -11,6 +11,32 @@ import { FileType } from './fileTypes';
 
 export type ThemeSetting = 'light' | 'dark' | 'system';
 export type DefaultOpenMode = 'view' | 'edit';
+export type SqlDialect = 'postgresql' | 'sqlite' | 'sql';
+export type EndOfLine = 'lf' | 'crlf' | 'auto';
+
+export interface FormattingOptions {
+  indentSize: number;
+  useTabs: boolean;
+  maxLineLength: number;
+  wrapProse: boolean;
+  endOfLine: EndOfLine;
+  formatOnSave: boolean;
+  sortJsonKeys: boolean;
+  sqlDialect: SqlDialect;
+  sqlUppercaseKeywords: boolean;
+}
+
+export const DEFAULT_FORMATTING_OPTIONS: FormattingOptions = {
+  indentSize: 4,
+  useTabs: false,
+  maxLineLength: 79,
+  wrapProse: true,
+  endOfLine: 'auto',
+  formatOnSave: false,
+  sortJsonKeys: true,
+  sqlDialect: 'postgresql',
+  sqlUppercaseKeywords: true,
+};
 
 export interface FileTypeDefaults {
   markdown: DefaultOpenMode;
@@ -27,12 +53,24 @@ export interface FileTypeDefaults {
   plaintext: DefaultOpenMode;
 }
 
+export interface EditorOptions {
+  showColumnRuler: boolean;
+  showCurrentLineHighlight: boolean;
+}
+
+export const DEFAULT_EDITOR_OPTIONS: EditorOptions = {
+  showColumnRuler: true,
+  showCurrentLineHighlight: true,
+};
+
 export interface Preferences {
   autoReload: boolean;
   autoSave: boolean;
   openLinksInNewTab: boolean;
   theme: ThemeSetting;
   fileTypeDefaults: FileTypeDefaults;
+  formatting: FormattingOptions;
+  editor: EditorOptions;
 }
 
 export const DEFAULT_FILE_TYPE_DEFAULTS: FileTypeDefaults = {
@@ -56,6 +94,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
   openLinksInNewTab: false,
   theme: 'system',
   fileTypeDefaults: DEFAULT_FILE_TYPE_DEFAULTS,
+  formatting: DEFAULT_FORMATTING_OPTIONS,
+  editor: DEFAULT_EDITOR_OPTIONS,
 };
 
 // Labels for file types in the preferences panel

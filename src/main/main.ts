@@ -29,6 +29,8 @@ import {
   ThemeSetting,
   DEFAULT_PREFERENCES,
   DEFAULT_FILE_TYPE_DEFAULTS,
+  DEFAULT_FORMATTING_OPTIONS,
+  DEFAULT_EDITOR_OPTIONS,
 } from '../shared/preferences';
 
 // Register custom protocol for serving local files
@@ -104,12 +106,24 @@ const store = new Store<StoreSchema>({
 // Ensure preferences has all required fields (for upgrades from older versions)
 function getPreferencesWithDefaults(): Preferences {
   const stored = store.get('preferences');
+  // Always use store.get('theme') as the source of truth for theme setting
+  // This ensures preferences.theme stays in sync even if it was changed via View menu
+  const actualTheme = store.get('theme') as ThemeSetting;
   return {
     ...DEFAULT_PREFERENCES,
     ...stored,
+    theme: actualTheme, // Override with actual theme to keep in sync
     fileTypeDefaults: {
       ...DEFAULT_FILE_TYPE_DEFAULTS,
       ...(stored.fileTypeDefaults || {}),
+    },
+    formatting: {
+      ...DEFAULT_FORMATTING_OPTIONS,
+      ...(stored.formatting || {}),
+    },
+    editor: {
+      ...DEFAULT_EDITOR_OPTIONS,
+      ...(stored.editor || {}),
     },
   };
 }
@@ -597,6 +611,14 @@ function createMenu(): void {
             mainWindow?.webContents.send('find-replace');
           },
         },
+        { type: 'separator' },
+        {
+          label: 'Format Document',
+          accelerator: 'Shift+Alt+F',
+          click: () => {
+            mainWindow?.webContents.send('format-document');
+          },
+        },
       ],
     },
     {
@@ -748,6 +770,14 @@ function createMenu(): void {
 
 function setTheme(theme: 'light' | 'dark' | 'system'): void {
   store.set('theme', theme);
+  // Also update preferences.theme to keep them in sync
+  const preferences = store.get('preferences');
+  if (preferences.theme !== theme) {
+    preferences.theme = theme;
+    store.set('preferences', preferences);
+    // Notify renderer of preference change
+    mainWindow?.webContents.send('preferences-changed', preferences);
+  }
   const effectiveTheme = getTheme();
   mainWindow?.webContents.send('theme-changed', effectiveTheme);
   createMenu(); // Rebuild menu to update radio button states
@@ -990,12 +1020,11 @@ ipcMain.handle('get-preferences', () => {
 });
 
 ipcMain.handle('set-preferences', (_, preferences: Preferences) => {
+  // Always use store.get('theme') as source of truth - don't let renderer override it
+  // Theme changes should go through set-theme handler instead
+  const actualTheme = store.get('theme') as ThemeSetting;
+  preferences.theme = actualTheme;
   store.set('preferences', preferences);
-  // If theme changed in preferences, update the app theme
-  if (preferences.theme !== store.get('theme')) {
-    store.set('theme', preferences.theme);
-    setTheme(preferences.theme);
-  }
 });
 
 ipcMain.handle('show-preferences', () => {

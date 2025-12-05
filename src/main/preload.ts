@@ -260,4 +260,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('show-preferences', listener);
     return () => ipcRenderer.removeListener('show-preferences', listener);
   },
+
+  onFormatDocument: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('format-document', listener);
+    return () => ipcRenderer.removeListener('format-document', listener);
+  },
 });
