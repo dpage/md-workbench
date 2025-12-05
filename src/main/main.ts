@@ -23,6 +23,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
 import Store from 'electron-store';
+import { getFileTypeInfo, SUPPORTED_EXTENSIONS, FileType } from '../shared/fileTypes';
+import {
+  Preferences,
+  ThemeSetting,
+  DEFAULT_PREFERENCES,
+  DEFAULT_FILE_TYPE_DEFAULTS,
+} from '../shared/preferences';
 
 // Register custom protocol for serving local files
 protocol.registerSchemesAsPrivileged([
@@ -57,11 +64,6 @@ interface OpenFile {
   fileName: string;
 }
 
-interface Preferences {
-  autoReload: boolean;
-  openLinksInNewTab: boolean;
-}
-
 interface FolderEntry {
   name: string;
   path: string;
@@ -72,7 +74,7 @@ interface StoreSchema {
   windowBounds: WindowBounds;
   openFiles: OpenFile[];
   activeFilePath: string | null;
-  theme: 'light' | 'dark' | 'system';
+  theme: ThemeSetting;
   preferences: Preferences;
   recentFiles: string[];
   recentFolders: string[];
@@ -92,15 +94,25 @@ const store = new Store<StoreSchema>({
     openFiles: [],
     activeFilePath: null,
     theme: 'system',
-    preferences: {
-      autoReload: true,
-      openLinksInNewTab: false,
-    },
+    preferences: DEFAULT_PREFERENCES,
     recentFiles: [],
     recentFolders: [],
     currentFolder: null,
   },
 });
+
+// Ensure preferences has all required fields (for upgrades from older versions)
+function getPreferencesWithDefaults(): Preferences {
+  const stored = store.get('preferences');
+  return {
+    ...DEFAULT_PREFERENCES,
+    ...stored,
+    fileTypeDefaults: {
+      ...DEFAULT_FILE_TYPE_DEFAULTS,
+      ...(stored.fileTypeDefaults || {}),
+    },
+  };
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -113,10 +125,18 @@ const fileWatchers = new Map<string, fs.FSWatcher>();
 // Track if we're force closing (bypass unsaved check)
 let forceClose = false;
 
-// Check if a file path is a supported markdown file
+// Check if a file path is a supported file type
 function isSupportedFile(filePath: string): boolean {
-  const ext = path.extname(filePath).toLowerCase();
-  return ['.md', '.markdown', '.txt'].includes(ext);
+  const ext = path.extname(filePath).toLowerCase().slice(1); // Remove the leading dot
+  const fileName = path.basename(filePath).toLowerCase();
+
+  // Check for exact filename matches (e.g., Dockerfile)
+  if (SUPPORTED_EXTENSIONS.includes(fileName)) {
+    return true;
+  }
+
+  // Check for extension matches
+  return SUPPORTED_EXTENSIONS.includes(ext);
 }
 
 // Extract file paths from command line arguments
@@ -139,7 +159,7 @@ function startWatchingFile(filePath: string): void {
 
   try {
     const watcher = fs.watch(filePath, (eventType) => {
-      if (eventType === 'change' && store.get('preferences').autoReload) {
+      if (eventType === 'change' && getPreferencesWithDefaults().autoReload) {
         // Debounce: wait a bit for file to finish writing
         setTimeout(async () => {
           try {
@@ -557,9 +577,9 @@ function createMenu(): void {
         {
           label: 'Auto-Reload Files',
           type: 'checkbox',
-          checked: store.get('preferences').autoReload,
+          checked: getPreferencesWithDefaults().autoReload,
           click: (menuItem) => {
-            const preferences = store.get('preferences');
+            const preferences = getPreferencesWithDefaults();
             preferences.autoReload = menuItem.checked;
             store.set('preferences', preferences);
             mainWindow?.webContents.send('preferences-changed', preferences);
@@ -568,9 +588,9 @@ function createMenu(): void {
         {
           label: 'Open Links in New Tab',
           type: 'checkbox',
-          checked: store.get('preferences').openLinksInNewTab,
+          checked: getPreferencesWithDefaults().openLinksInNewTab,
           click: (menuItem) => {
-            const preferences = store.get('preferences');
+            const preferences = getPreferencesWithDefaults();
             preferences.openLinksInNewTab = menuItem.checked;
             store.set('preferences', preferences);
             mainWindow?.webContents.send('preferences-changed', preferences);
@@ -631,6 +651,14 @@ function createMenu(): void {
       submenu: [
         { role: 'about' },
         { type: 'separator' },
+        {
+          label: 'Preferences...',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            mainWindow?.webContents.send('show-preferences');
+          },
+        },
+        { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
         { role: 'hide' },
@@ -640,6 +668,26 @@ function createMenu(): void {
         { role: 'quit' },
       ],
     });
+  } else {
+    // For Windows/Linux, add Preferences to Edit menu
+    const editMenuIndex = template.findIndex(
+      (item) => item.label === 'Edit'
+    );
+    if (editMenuIndex !== -1) {
+      const editMenu = template[editMenuIndex];
+      if (Array.isArray(editMenu.submenu)) {
+        editMenu.submenu.push(
+          { type: 'separator' },
+          {
+            label: 'Preferences...',
+            accelerator: 'CmdOrCtrl+,',
+            click: () => {
+              mainWindow?.webContents.send('show-preferences');
+            },
+          }
+        );
+      }
+    }
   }
 
   const menu = Menu.buildFromTemplate(template);
@@ -659,7 +707,7 @@ async function openFileDialog(): Promise<void> {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile'],
     filters: [
-      { name: 'Markdown Files', extensions: ['md', 'markdown', 'txt'] },
+      { name: 'Supported Files', extensions: SUPPORTED_EXTENSIONS },
       { name: 'All Files', extensions: ['*'] },
     ],
   });
@@ -679,11 +727,16 @@ async function openFile(
   try {
     const content = await fs.promises.readFile(filePath, 'utf-8');
     const fileName = path.basename(filePath);
+    const fileTypeInfo = getFileTypeInfo(filePath);
     mainWindow.webContents.send('file-opened', {
       filePath,
       fileName,
       content,
       replaceCurrentTab,
+      fileType: fileTypeInfo.type,
+      highlightLanguage: fileTypeInfo.highlightLanguage,
+      supportsRenderedView: fileTypeInfo.supportsRenderedView,
+      supportsFormatting: fileTypeInfo.supportsFormatting,
     });
     // Start watching the file for changes
     startWatchingFile(filePath);
@@ -814,9 +867,18 @@ ipcMain.handle('read-file', async (_, filePath: string) => {
   try {
     const content = await fs.promises.readFile(filePath, 'utf-8');
     const fileName = path.basename(filePath);
+    const fileTypeInfo = getFileTypeInfo(filePath);
     // Start watching the file for changes
     startWatchingFile(filePath);
-    return { filePath, fileName, content };
+    return {
+      filePath,
+      fileName,
+      content,
+      fileType: fileTypeInfo.type,
+      highlightLanguage: fileTypeInfo.highlightLanguage,
+      supportsRenderedView: fileTypeInfo.supportsRenderedView,
+      supportsFormatting: fileTypeInfo.supportsFormatting,
+    };
   } catch (error) {
     throw new Error(`Failed to read file: ${error}`);
   }
@@ -840,11 +902,20 @@ ipcMain.handle(
 
 // Preferences handlers
 ipcMain.handle('get-preferences', () => {
-  return store.get('preferences');
+  return getPreferencesWithDefaults();
 });
 
 ipcMain.handle('set-preferences', (_, preferences: Preferences) => {
   store.set('preferences', preferences);
+  // If theme changed in preferences, update the app theme
+  if (preferences.theme !== store.get('theme')) {
+    store.set('theme', preferences.theme);
+    setTheme(preferences.theme);
+  }
+});
+
+ipcMain.handle('show-preferences', () => {
+  mainWindow?.webContents.send('show-preferences');
 });
 
 // File watcher handlers
@@ -862,12 +933,12 @@ ipcMain.handle('open-external', async (_, url: string) => {
 });
 
 ipcMain.handle('open-local-file', async (_, filePath: string) => {
-  const openInNewTab = store.get('preferences').openLinksInNewTab;
+  const openInNewTab = getPreferencesWithDefaults().openLinksInNewTab;
   await openFile(filePath, !openInNewTab);
 });
 
 ipcMain.handle('get-open-links-in-new-tab', () => {
-  return store.get('preferences').openLinksInNewTab;
+  return getPreferencesWithDefaults().openLinksInNewTab;
 });
 
 // Save file handlers

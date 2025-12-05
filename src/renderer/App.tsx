@@ -17,12 +17,19 @@ import WelcomeScreen from './components/WelcomeScreen';
 import SearchBar, { SearchOptions, SearchResult } from './components/SearchBar';
 import HelpPanel from './components/HelpPanel';
 import FolderPanel from './components/FolderPanel';
+import PreferencesPanel from './components/PreferencesPanel';
+import { Preferences, DEFAULT_PREFERENCES } from '../shared/preferences';
+import { FileType } from '../shared/fileTypes';
 
 interface FileData {
   filePath: string;
   fileName: string;
   content: string;
   replaceCurrentTab?: boolean;
+  fileType?: string;
+  highlightLanguage?: string;
+  supportsRenderedView?: boolean;
+  supportsFormatting?: boolean;
 }
 
 interface OpenFile {
@@ -33,11 +40,6 @@ interface OpenFile {
 interface SessionData {
   files: OpenFile[];
   activeFilePath: string | null;
-}
-
-interface Preferences {
-  autoReload: boolean;
-  openLinksInNewTab: boolean;
 }
 
 interface FolderEntry {
@@ -108,6 +110,7 @@ declare global {
       getCurrentFolder: () => Promise<FolderData | null>;
       onFolderOpened: (callback: (data: FolderData) => void) => () => void;
       onFolderClosed: (callback: () => void) => () => void;
+      onShowPreferences: (callback: () => void) => () => void;
     };
   }
 }
@@ -130,6 +133,8 @@ const App: React.FC = () => {
   const [showSearch, setShowSearch] = useState(false);
   const [showReplace, setShowReplace] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
+  const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [currentFolder, setCurrentFolder] = useState<FolderData | null>(null);
 
   // Search state for view mode (non-edit mode)
@@ -150,6 +155,9 @@ const App: React.FC = () => {
 
   const activeTabIdRef = useRef<string | null>(activeTabId);
   activeTabIdRef.current = activeTabId;
+
+  const preferencesRef = useRef<Preferences>(preferences);
+  preferencesRef.current = preferences;
 
   // Store scroll positions per tab
   const scrollPositionsRef = useRef<Map<string, ScrollPosition>>(new Map());
@@ -194,6 +202,11 @@ const App: React.FC = () => {
       (tab) => tab.filePath === data.filePath
     );
 
+    // Determine default open mode based on file type preferences
+    const fileType = (data.fileType || 'plaintext') as FileType;
+    const defaultMode = preferencesRef.current.fileTypeDefaults?.[fileType] ?? 'view';
+    const shouldOpenInEditMode = defaultMode === 'edit';
+
     if (existingTab) {
       // File already open - just switch to it
       setActiveTabId(existingTab.id);
@@ -233,6 +246,12 @@ const App: React.FC = () => {
                 filePath: data.filePath,
                 fileName: data.fileName,
                 content: data.content,
+                fileType: data.fileType,
+                highlightLanguage: data.highlightLanguage,
+                supportsRenderedView: data.supportsRenderedView ?? true,
+                supportsFormatting: data.supportsFormatting ?? true,
+                editMode: shouldOpenInEditMode,
+                viewSource: false,
               }
             : tab
         )
@@ -244,6 +263,11 @@ const App: React.FC = () => {
         filePath: data.filePath,
         fileName: data.fileName,
         content: data.content,
+        fileType: data.fileType,
+        highlightLanguage: data.highlightLanguage,
+        supportsRenderedView: data.supportsRenderedView ?? true,
+        supportsFormatting: data.supportsFormatting ?? true,
+        editMode: shouldOpenInEditMode,
       };
       setTabs((prev) => [...prev, newTab]);
       setActiveTabId(newTab.id);
@@ -304,6 +328,10 @@ const App: React.FC = () => {
                 filePath: fileData.filePath,
                 fileName: fileData.fileName,
                 content: fileData.content,
+                fileType: fileData.fileType,
+                highlightLanguage: fileData.highlightLanguage,
+                supportsRenderedView: fileData.supportsRenderedView ?? true,
+                supportsFormatting: fileData.supportsFormatting ?? true,
               }
             : tab
         )
@@ -347,6 +375,10 @@ const App: React.FC = () => {
                 filePath: fileData.filePath,
                 fileName: fileData.fileName,
                 content: fileData.content,
+                fileType: fileData.fileType,
+                highlightLanguage: fileData.highlightLanguage,
+                supportsRenderedView: fileData.supportsRenderedView ?? true,
+                supportsFormatting: fileData.supportsFormatting ?? true,
               }
             : tab
         )
@@ -650,6 +682,35 @@ const App: React.FC = () => {
     setShowHelp(false);
   }, []);
 
+  // Preferences panel handlers
+  const handleShowPreferences = useCallback(() => {
+    setShowPreferences(true);
+  }, []);
+
+  const handleClosePreferences = useCallback(() => {
+    setShowPreferences(false);
+  }, []);
+
+  const handlePreferencesChange = useCallback((newPreferences: Preferences) => {
+    setPreferences(newPreferences);
+    window.electronAPI?.setPreferences(newPreferences);
+  }, []);
+
+  // Load preferences on mount
+  useEffect(() => {
+    const loadPreferences = async () => {
+      try {
+        const prefs = await window.electronAPI?.getPreferences();
+        if (prefs) {
+          setPreferences(prefs);
+        }
+      } catch (error) {
+        console.error('Failed to load preferences:', error);
+      }
+    };
+    loadPreferences();
+  }, []);
+
   // Folder handlers
   const handleFolderOpened = useCallback((data: FolderData) => {
     setCurrentFolder(data);
@@ -858,6 +919,10 @@ const App: React.FC = () => {
             filePath: fileData.filePath,
             fileName: fileData.fileName,
             content: fileData.content,
+            fileType: fileData.fileType,
+            highlightLanguage: fileData.highlightLanguage,
+            supportsRenderedView: fileData.supportsRenderedView ?? true,
+            supportsFormatting: fileData.supportsFormatting ?? true,
           };
           loadedTabs.push(tab);
 
@@ -905,6 +970,8 @@ const App: React.FC = () => {
       window.electronAPI?.onFolderOpened(handleFolderOpened);
     const unsubscribeFolderClosed =
       window.electronAPI?.onFolderClosed(handleFolderClosed);
+    const unsubscribeShowPreferences =
+      window.electronAPI?.onShowPreferences(handleShowPreferences);
 
     return () => {
       unsubscribeFileOpened?.();
@@ -919,6 +986,7 @@ const App: React.FC = () => {
       unsubscribeFindReplace?.();
       unsubscribeFolderOpened?.();
       unsubscribeFolderClosed?.();
+      unsubscribeShowPreferences?.();
     };
   }, [
     handleFileOpened,
@@ -933,6 +1001,7 @@ const App: React.FC = () => {
     handleFindReplace,
     handleFolderOpened,
     handleFolderClosed,
+    handleShowPreferences,
   ]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -969,6 +1038,7 @@ const App: React.FC = () => {
         editMode={activeTab?.editMode ?? false}
         onToggleEditMode={handleToggleEditMode}
         hasActiveTab={!!activeTab}
+        supportsRenderedView={activeTab?.supportsRenderedView ?? true}
         onCut={handleCut}
         onCopy={handleCopy}
         onPaste={handlePaste}
@@ -1022,6 +1092,7 @@ const App: React.FC = () => {
                   searchOptions={viewSearchOptions}
                   initialMatchIndex={viewCurrentMatch - 1}
                   onMatchChange={handleCurrentMatchChange}
+                  highlightLanguage={activeTab.highlightLanguage}
                 />
               </div>
             ) : activeTab.editMode ? (
@@ -1039,8 +1110,11 @@ const App: React.FC = () => {
                 initialMatchIndex={viewCurrentMatch - 1}
                 onSearchStateChange={handleSearchStateChange}
                 onCurrentMatchChange={handleCurrentMatchChange}
+                supportsFormatting={activeTab.supportsFormatting ?? true}
+                supportsRenderedView={activeTab.supportsRenderedView ?? true}
+                highlightLanguage={activeTab.highlightLanguage}
               />
-            ) : (
+            ) : activeTab.supportsRenderedView !== false ? (
               <div className="view-mode-container">
                 {showSearch && (
                   <SearchBar
@@ -1068,6 +1142,32 @@ const App: React.FC = () => {
                   currentMatchIndex={viewCurrentMatch - 1}
                 />
               </div>
+            ) : (
+              <div className="view-mode-container">
+                {showSearch && (
+                  <SearchBar
+                    onClose={handleCloseSearch}
+                    onSearch={handleViewSearch}
+                    onReplace={handleViewReplace}
+                    onReplaceAll={handleViewReplaceAll}
+                    onNavigate={handleViewNavigate}
+                    matchCount={viewMatchCount}
+                    currentMatch={viewCurrentMatch}
+                    showReplace={false}
+                    allowReplace={false}
+                    initialQuery={viewSearchQuery}
+                    initialOptions={viewSearchOptions}
+                  />
+                )}
+                <SourceViewer
+                  content={activeTab.content}
+                  searchQuery={showSearch ? viewSearchQuery : ''}
+                  searchOptions={viewSearchOptions}
+                  initialMatchIndex={viewCurrentMatch - 1}
+                  onMatchChange={handleCurrentMatchChange}
+                  highlightLanguage={activeTab.highlightLanguage}
+                />
+              </div>
             )
           ) : (
             <WelcomeScreen onOpenFile={handleOpenFile} />
@@ -1075,6 +1175,12 @@ const App: React.FC = () => {
         </div>
       </main>
       <HelpPanel isOpen={showHelp} onClose={handleCloseHelp} />
+      <PreferencesPanel
+        isOpen={showPreferences}
+        onClose={handleClosePreferences}
+        preferences={preferences}
+        onPreferencesChange={handlePreferencesChange}
+      />
     </div>
   );
 };

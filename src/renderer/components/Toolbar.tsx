@@ -20,6 +20,7 @@ interface ToolbarProps {
   editMode: boolean;
   onToggleEditMode: () => void;
   hasActiveTab: boolean;
+  supportsRenderedView?: boolean;
   onCut?: () => void;
   onCopy?: () => void;
   onPaste?: () => void;
@@ -39,6 +40,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   editMode,
   onToggleEditMode,
   hasActiveTab,
+  supportsRenderedView = true,
   onCut,
   onCopy,
   onPaste,
@@ -309,37 +311,39 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </svg>
           <span>Open</span>
         </button>
-        <button
-          className={`toolbar-button toolbar-button-source ${viewSource ? 'active' : ''}`}
-          onClick={onToggleViewSource}
-          disabled={!hasActiveTab}
-          title={viewSource ? 'View Rendered' : 'View Source'}
-          aria-label={viewSource ? 'View Rendered' : 'View Source'}
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+        {supportsRenderedView && (
+          <button
+            className={`toolbar-button toolbar-button-source ${viewSource ? 'active' : ''}`}
+            onClick={onToggleViewSource}
+            disabled={!hasActiveTab}
+            title={viewSource ? 'View Rendered' : 'View Source'}
+            aria-label={viewSource ? 'View Rendered' : 'View Source'}
           >
-            <path
-              d="M5.5 4L2 8L5.5 12"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M10.5 4L14 8L10.5 12"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span>Source</span>
-        </button>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M5.5 4L2 8L5.5 12"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M10.5 4L14 8L10.5 12"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Source</span>
+          </button>
+        )}
         <button
           className={`toolbar-button toolbar-button-edit ${editMode ? 'active' : ''}`}
           onClick={onToggleEditMode}

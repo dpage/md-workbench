@@ -18,6 +18,10 @@ export interface Tab {
   viewSource?: boolean;
   editMode?: boolean;
   isDirty?: boolean;
+  fileType?: string;
+  highlightLanguage?: string;
+  supportsRenderedView?: boolean;
+  supportsFormatting?: boolean;
 }
 
 interface TabBarProps {

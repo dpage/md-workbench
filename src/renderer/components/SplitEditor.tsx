@@ -12,6 +12,46 @@ import MarkdownViewer, { SearchHighlightOptions } from './MarkdownViewer';
 import SearchBar, { SearchOptions, SearchResult } from './SearchBar';
 import FormattingToolbar from './FormattingToolbar';
 import { FormattingResult } from '../utils/markdownFormatting';
+import hljs from 'highlight.js/lib/core';
+
+// Import commonly used languages
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import json from 'highlight.js/lib/languages/json';
+import xml from 'highlight.js/lib/languages/xml';
+import yaml from 'highlight.js/lib/languages/yaml';
+import markdown from 'highlight.js/lib/languages/markdown';
+import python from 'highlight.js/lib/languages/python';
+import sql from 'highlight.js/lib/languages/sql';
+import bash from 'highlight.js/lib/languages/bash';
+import css from 'highlight.js/lib/languages/css';
+import scss from 'highlight.js/lib/languages/scss';
+import less from 'highlight.js/lib/languages/less';
+import ini from 'highlight.js/lib/languages/ini';
+import dockerfile from 'highlight.js/lib/languages/dockerfile';
+import powershell from 'highlight.js/lib/languages/powershell';
+import dos from 'highlight.js/lib/languages/dos';
+import plaintext from 'highlight.js/lib/languages/plaintext';
+
+// Register languages
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('html', xml);
+hljs.registerLanguage('yaml', yaml);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('scss', scss);
+hljs.registerLanguage('less', less);
+hljs.registerLanguage('ini', ini);
+hljs.registerLanguage('dockerfile', dockerfile);
+hljs.registerLanguage('powershell', powershell);
+hljs.registerLanguage('dos', dos);
+hljs.registerLanguage('plaintext', plaintext);
 
 // Helper to escape HTML entities
 function escapeHtml(text: string): string {
@@ -36,6 +76,9 @@ interface SplitEditorProps {
   initialMatchIndex?: number;
   onSearchStateChange?: (query: string, options: SearchOptions) => void;
   onCurrentMatchChange?: (matchIndex: number, totalMatches: number) => void;
+  supportsFormatting?: boolean;
+  supportsRenderedView?: boolean;
+  highlightLanguage?: string;
 }
 
 interface Match {
@@ -65,6 +108,9 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   initialMatchIndex = 0,
   onSearchStateChange,
   onCurrentMatchChange,
+  supportsFormatting = true,
+  supportsRenderedView = true,
+  highlightLanguage = 'markdown',
 }) => {
   const [splitRatio, setSplitRatio] = useState(0.5); // 0-1, left panel width ratio
   const [isDragging, setIsDragging] = useState(false);
@@ -672,39 +718,51 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     };
   }, [lastSearchQuery, lastSearchOptions]);
 
-  // Generate highlighted content for the source editor overlay - only when search is active
+  // Apply syntax highlighting to the content
+  const syntaxHighlightedContent = useMemo(() => {
+    if (!editedContent) return '';
+
+    try {
+      const lang = hljs.getLanguage(highlightLanguage) ? highlightLanguage : 'plaintext';
+      const result = hljs.highlight(editedContent, { language: lang });
+      return result.value;
+    } catch {
+      return escapeHtml(editedContent);
+    }
+  }, [editedContent, highlightLanguage]);
+
+  // Generate highlighted content for the source editor overlay
+  // Shows syntax highlighting, with search highlights overlaid when active
   const highlightedSourceContent = useMemo(() => {
-    // Skip processing entirely when no search is active
-    if (matches.length === 0) {
-      return null;
-    }
+    // When search is active, show plain text with search highlights
+    // (syntax highlighting + search marks is complex and can break highlighting)
+    if (matches.length > 0) {
+      const parts: string[] = [];
+      let lastEnd = 0;
 
-    // Build highlighted HTML
-    const parts: string[] = [];
-    let lastEnd = 0;
+      matches.forEach((match, index) => {
+        if (match.start > lastEnd) {
+          parts.push(escapeHtml(editedContent.substring(lastEnd, match.start)));
+        }
+        const matchText = editedContent.substring(match.start, match.end);
+        const className =
+          index === currentMatchIndex
+            ? 'search-highlight search-highlight-current'
+            : 'search-highlight';
+        parts.push(`<mark class="${className}">${escapeHtml(matchText)}</mark>`);
+        lastEnd = match.end;
+      });
 
-    matches.forEach((match, index) => {
-      // Add text before match
-      if (match.start > lastEnd) {
-        parts.push(escapeHtml(editedContent.substring(lastEnd, match.start)));
+      if (lastEnd < editedContent.length) {
+        parts.push(escapeHtml(editedContent.substring(lastEnd)));
       }
-      // Add highlighted match
-      const matchText = editedContent.substring(match.start, match.end);
-      const className =
-        index === currentMatchIndex
-          ? 'search-highlight search-highlight-current'
-          : 'search-highlight';
-      parts.push(`<mark class="${className}">${escapeHtml(matchText)}</mark>`);
-      lastEnd = match.end;
-    });
 
-    // Add remaining text
-    if (lastEnd < editedContent.length) {
-      parts.push(escapeHtml(editedContent.substring(lastEnd)));
+      return parts.join('') + '\n';
     }
 
-    return parts.join('') + '\n'; // Extra newline to match textarea behavior
-  }, [editedContent, matches, currentMatchIndex]);
+    // No search active - show syntax highlighted content
+    return syntaxHighlightedContent + '\n';
+  }, [editedContent, matches, currentMatchIndex, syntaxHighlightedContent]);
 
   // Sync highlight overlay scroll with textarea
   const syncHighlightScroll = useCallback(() => {
@@ -739,21 +797,21 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
         <div
           ref={sourceRef}
           className="split-panel split-panel-source"
-          style={{ width: `${splitRatio * 100}%` }}
+          style={{ width: supportsRenderedView ? `${splitRatio * 100}%` : '100%' }}
         >
-          <FormattingToolbar
-            contentRef={contentRef}
-            onFormat={handleFormatting}
-            onRequestSelection={getSelection}
-          />
+          {supportsFormatting && (
+            <FormattingToolbar
+              contentRef={contentRef}
+              onFormat={handleFormatting}
+              onRequestSelection={getSelection}
+            />
+          )}
           <div className="source-editor-container">
-            {highlightedSourceContent && (
-              <div
-                ref={highlightRef}
-                className="source-editor-highlight"
-                dangerouslySetInnerHTML={{ __html: highlightedSourceContent }}
-              />
-            )}
+            <div
+              ref={highlightRef}
+              className={`source-editor-highlight ${matches.length === 0 ? 'syntax-highlighted' : ''}`}
+              dangerouslySetInnerHTML={{ __html: highlightedSourceContent }}
+            />
             <textarea
               ref={textareaRef}
               className="source-editor"
@@ -767,22 +825,26 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
             />
           </div>
         </div>
-        <div className="split-divider" onMouseDown={handleMouseDown}>
-          <div className="split-divider-handle" />
-        </div>
-        <div
-          ref={renderedRef}
-          className="split-panel split-panel-rendered"
-          style={{ width: `${(1 - splitRatio) * 100}%` }}
-        >
-          <MarkdownViewer
-            content={previewContent}
-            fileName={fileName}
-            filePath={filePath}
-            searchHighlight={searchHighlight}
-            currentMatchIndex={currentMatchIndex}
-          />
-        </div>
+        {supportsRenderedView && (
+          <>
+            <div className="split-divider" onMouseDown={handleMouseDown}>
+              <div className="split-divider-handle" />
+            </div>
+            <div
+              ref={renderedRef}
+              className="split-panel split-panel-rendered"
+              style={{ width: `${(1 - splitRatio) * 100}%` }}
+            >
+              <MarkdownViewer
+                content={previewContent}
+                fileName={fileName}
+                filePath={filePath}
+                searchHighlight={searchHighlight}
+                currentMatchIndex={currentMatchIndex}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -77,33 +77,57 @@ const HelpContent: React.FC = () => (
   <div className="help-content">
     <h1>Markdown Workbench</h1>
     <p className="help-intro">
-      A modern, feature-rich Markdown viewer and editor.
+      A modern, feature-rich file viewer and editor with excellent Markdown support.
     </p>
+
+    <section>
+      <h2>Supported File Types</h2>
+      <p>View and edit many common file types with syntax highlighting:</p>
+      <ul>
+        <li><strong>Markdown</strong> — .md, .markdown, .mdx (with rendered preview)</li>
+        <li><strong>Data formats</strong> — JSON, YAML, XML, CSV, TOML</li>
+        <li><strong>Web</strong> — HTML, CSS, SCSS, Less</li>
+        <li><strong>Code</strong> — JavaScript, TypeScript, Python, SQL</li>
+        <li><strong>Shell</strong> — Bash, PowerShell, Batch files</li>
+        <li><strong>Config</strong> — INI, ENV, log files, plain text</li>
+      </ul>
+    </section>
 
     <section>
       <h2>Opening Files</h2>
       <ul>
         <li>Click the <strong>Open</strong> button in the toolbar</li>
         <li>Use <kbd>Cmd+O</kbd> (macOS) or <kbd>Ctrl+O</kbd> (Windows/Linux)</li>
-        <li>Drag and drop markdown files onto the window</li>
-        <li>Click links to other markdown files within documents</li>
+        <li>Open a folder to browse files in the sidebar</li>
+        <li>Drag and drop files onto the window</li>
+        <li>Click links to other files within Markdown documents</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Folder Browser</h2>
+      <ul>
+        <li>Use <strong>File → Open Folder</strong> to open a folder</li>
+        <li>Browse and open files from the sidebar</li>
+        <li>Expand/collapse directories by clicking</li>
+        <li>Use <strong>File → Close Folder</strong> to close the sidebar</li>
       </ul>
     </section>
 
     <section>
       <h2>Viewing Modes</h2>
-      <p>Switch between three viewing modes using the toolbar buttons:</p>
+      <p>Switch between viewing modes using the toolbar buttons:</p>
       <ul>
         <li>
-          <strong>Preview</strong> (default) — Rendered markdown with full styling,
+          <strong>Preview</strong> (Markdown only) — Rendered content with full styling,
           syntax highlighting, and diagram support
         </li>
         <li>
-          <strong>Source</strong> — View the raw markdown source code
+          <strong>Source</strong> — View the source with syntax highlighting
         </li>
         <li>
           <strong>Edit</strong> — Split view with an editor on the left and live
-          preview on the right, with synchronized scrolling
+          preview on the right (for Markdown), or full-width editor (for other files)
         </li>
       </ul>
     </section>
@@ -192,19 +216,34 @@ const HelpContent: React.FC = () => (
             <td><kbd>Cmd+]</kbd></td>
             <td><kbd>Alt+Right</kbd></td>
           </tr>
+          <tr>
+            <td>Preferences</td>
+            <td><kbd>Cmd+,</kbd></td>
+            <td><kbd>Ctrl+,</kbd></td>
+          </tr>
         </tbody>
       </table>
     </section>
 
     <section>
-      <h2>Features</h2>
+      <h2>Preferences</h2>
+      <p>Open preferences with <kbd>Cmd+,</kbd> (macOS) or <kbd>Ctrl+,</kbd> (Windows/Linux):</p>
+      <ul>
+        <li><strong>General</strong> — Auto-reload files, link behavior</li>
+        <li><strong>Appearance</strong> — Light, dark, or system theme</li>
+        <li><strong>File Types</strong> — Set default viewing mode (View or Edit) per file type</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Markdown Features</h2>
       <ul>
         <li><strong>GitHub Flavored Markdown</strong> — Tables, task lists, strikethrough, and more</li>
         <li><strong>Syntax Highlighting</strong> — Code blocks with language-specific highlighting</li>
         <li><strong>Mermaid Diagrams</strong> — Flowcharts, sequence diagrams, and more</li>
         <li><strong>Admonitions</strong> — Note, warning, tip, and other callout blocks</li>
         <li><strong>Auto-reload</strong> — Files automatically refresh when changed externally</li>
-        <li><strong>Dark/Light Theme</strong> — Follows your system preference</li>
+        <li><strong>Dark/Light Theme</strong> — Follows your system preference or manual selection</li>
       </ul>
     </section>
   </div>

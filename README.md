@@ -1,13 +1,27 @@
 # Markdown Workbench
 
-A modern, feature-rich Markdown viewer and editor built with Electron and React.
+A modern, feature-rich file viewer and editor built with Electron and React, with excellent Markdown support.
 
 ## Features
 
-- **Three Viewing Modes**
-  - **Preview Mode**: Rendered markdown with full styling
-  - **Source Mode**: Raw markdown with syntax highlighting
-  - **Edit Mode**: Split view with live preview and synchronized scrolling
+- **Multiple File Type Support**
+  - Markdown (.md, .markdown, .mdx) with rendered preview
+  - Data formats (JSON, YAML, XML, CSV, TOML)
+  - Web files (HTML, CSS, SCSS, Less)
+  - Code (JavaScript, TypeScript, Python, SQL)
+  - Shell scripts (Bash, PowerShell, Batch)
+  - Config files (INI, ENV, log files, plain text)
+  - All file types include syntax highlighting
+
+- **Viewing Modes**
+  - **Preview Mode**: Rendered content (Markdown only)
+  - **Source Mode**: Syntax-highlighted source code
+  - **Edit Mode**: Split view with live preview (Markdown) or full-width editor
+
+- **Folder Browser**
+  - Open folders and browse files in a sidebar
+  - Navigate directory structures
+  - Quick access to project files
 
 - **Search & Replace**
   - Find text across all viewing modes
@@ -25,17 +39,18 @@ A modern, feature-rich Markdown viewer and editor built with Electron and React.
 - **Navigation**
   - Tabbed interface for multiple documents
   - Back/forward navigation history
-  - Click links to open local markdown files
+  - Click links to open local files
   - External links open in default browser
+
+- **Preferences**
+  - General settings (auto-reload, link behavior)
+  - Appearance (light, dark, or system theme)
+  - File type defaults (choose View or Edit mode per file type)
 
 - **File Management**
   - Auto-reload on external file changes
   - Unsaved changes detection
   - Save and Save As functionality
-
-- **Appearance**
-  - Dark and light theme support
-  - Clean, modern interface
 
 ## Installation
 
@@ -74,13 +89,30 @@ npm run package
 
 - Click the **Open** button in the toolbar
 - Use **Cmd/Ctrl+O** keyboard shortcut
-- Drag and drop markdown files onto the window
-- Click links to other markdown files within documents
+- Open a folder to browse files in the sidebar
+- Drag and drop files onto the window
+- Click links to other files within Markdown documents
+
+### Folder Browser
+
+- Use **File → Open Folder** to open a folder
+- Browse and open files from the sidebar
+- Click directories to expand/collapse them
+- Use **File → Close Folder** to close the sidebar
 
 ### Viewing Modes
 
-- **Source**: View raw markdown source code
-- **Edit**: Split view with editor on left, preview on right
+- **Preview**: Rendered view for Markdown files
+- **Source**: Syntax-highlighted source code view
+- **Edit**: Split view with editor on left, preview on right (Markdown), or full-width editor (other file types)
+
+### Preferences
+
+Open preferences with **Cmd+,** (macOS) or **Ctrl+,** (Windows/Linux) to configure:
+
+- **General**: Auto-reload files, link behavior
+- **Appearance**: Light, dark, or system theme
+- **File Types**: Default viewing mode (View or Edit) for each file type
 
 ### Keyboard Shortcuts
 
@@ -94,6 +126,7 @@ npm run package
 | Close Tab | Cmd+W | Ctrl+W |
 | Navigate Back | Cmd+[ | Alt+Left |
 | Navigate Forward | Cmd+] | Alt+Right |
+| Preferences | Cmd+, | Ctrl+, |
 
 ### Search
 
@@ -119,7 +152,11 @@ md-workbench/
 │   │   ├── App.tsx     # Main application component
 │   │   ├── components/ # React components
 │   │   ├── plugins/    # Markdown plugins
+│   │   ├── utils/      # Utility functions
 │   │   └── styles/     # CSS styles
+│   ├── shared/         # Shared types and constants
+│   │   ├── fileTypes.ts    # File type definitions
+│   │   └── preferences.ts  # Preferences types
 │   └── test/           # Test files
 ├── dist/               # Build output
 └── package.json

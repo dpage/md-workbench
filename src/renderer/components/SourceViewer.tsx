@@ -9,6 +9,46 @@
 
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { SearchOptions } from './SearchBar';
+import hljs from 'highlight.js/lib/core';
+
+// Import commonly used languages
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import json from 'highlight.js/lib/languages/json';
+import xml from 'highlight.js/lib/languages/xml';
+import yaml from 'highlight.js/lib/languages/yaml';
+import markdown from 'highlight.js/lib/languages/markdown';
+import python from 'highlight.js/lib/languages/python';
+import sql from 'highlight.js/lib/languages/sql';
+import bash from 'highlight.js/lib/languages/bash';
+import css from 'highlight.js/lib/languages/css';
+import scss from 'highlight.js/lib/languages/scss';
+import less from 'highlight.js/lib/languages/less';
+import ini from 'highlight.js/lib/languages/ini';
+import dockerfile from 'highlight.js/lib/languages/dockerfile';
+import powershell from 'highlight.js/lib/languages/powershell';
+import dos from 'highlight.js/lib/languages/dos';
+import plaintext from 'highlight.js/lib/languages/plaintext';
+
+// Register languages
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('html', xml); // HTML uses XML highlighter
+hljs.registerLanguage('yaml', yaml);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('scss', scss);
+hljs.registerLanguage('less', less);
+hljs.registerLanguage('ini', ini);
+hljs.registerLanguage('dockerfile', dockerfile);
+hljs.registerLanguage('powershell', powershell);
+hljs.registerLanguage('dos', dos);
+hljs.registerLanguage('plaintext', plaintext);
 
 // Helper to escape HTML entities
 function escapeHtml(text: string): string {
@@ -31,6 +71,7 @@ export interface SourceViewerProps {
   searchOptions?: SearchOptions;
   initialMatchIndex?: number;
   onMatchChange?: (matchIndex: number, totalMatches: number) => void;
+  highlightLanguage?: string;
 }
 
 const SourceViewer: React.FC<SourceViewerProps> = ({
@@ -39,6 +80,7 @@ const SourceViewer: React.FC<SourceViewerProps> = ({
   searchOptions = { caseSensitive: false, useRegex: false },
   initialMatchIndex = 0,
   onMatchChange,
+  highlightLanguage = 'plaintext',
 }) => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(initialMatchIndex);
@@ -46,11 +88,30 @@ const SourceViewer: React.FC<SourceViewerProps> = ({
   const highlightRef = useRef<HTMLDivElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
 
+  // Apply syntax highlighting to the content
+  const syntaxHighlightedContent = useMemo(() => {
+    if (!content) return '';
+
+    try {
+      // Check if the language is registered
+      const lang = hljs.getLanguage(highlightLanguage) ? highlightLanguage : 'plaintext';
+      const result = hljs.highlight(content, { language: lang });
+      return result.value;
+    } catch {
+      // Fallback to escaped HTML if highlighting fails
+      return escapeHtml(content);
+    }
+  }, [content, highlightLanguage]);
+
+  // Track if we've done initial match positioning
+  const hasInitializedRef = useRef(false);
+
   // Perform search when query or options change
   useEffect(() => {
     if (!searchQuery) {
       setMatches([]);
       setCurrentMatchIndex(0);
+      hasInitializedRef.current = false;
       return;
     }
 
@@ -72,11 +133,19 @@ const SourceViewer: React.FC<SourceViewerProps> = ({
 
       setMatches(newMatches);
       if (newMatches.length > 0) {
-        // Use initialMatchIndex if valid, otherwise default to 0
-        const validIndex = initialMatchIndex >= 0 && initialMatchIndex < newMatches.length
-          ? initialMatchIndex
-          : 0;
-        setCurrentMatchIndex(validIndex);
+        // Only use initialMatchIndex on first search, not on subsequent updates
+        if (!hasInitializedRef.current) {
+          const validIndex = initialMatchIndex >= 0 && initialMatchIndex < newMatches.length
+            ? initialMatchIndex
+            : 0;
+          setCurrentMatchIndex(validIndex);
+          hasInitializedRef.current = true;
+        } else {
+          // Keep current index if still valid, otherwise reset to 0
+          setCurrentMatchIndex(prev =>
+            prev >= 0 && prev < newMatches.length ? prev : 0
+          );
+        }
       } else {
         setCurrentMatchIndex(0);
       }
@@ -86,10 +155,12 @@ const SourceViewer: React.FC<SourceViewerProps> = ({
     }
   }, [searchQuery, searchOptions, content, initialMatchIndex]);
 
-  // Report match changes to parent
+  // Report match changes to parent - only when search is active
   useEffect(() => {
-    onMatchChange?.(currentMatchIndex, matches.length);
-  }, [currentMatchIndex, matches.length, onMatchChange]);
+    if (searchQuery) {
+      onMatchChange?.(currentMatchIndex, matches.length);
+    }
+  }, [searchQuery, currentMatchIndex, matches.length, onMatchChange]);
 
   // Scroll to a match by finding the mark in the highlight overlay and syncing both elements
   const scrollToCurrentMatch = useCallback(() => {
@@ -153,12 +224,22 @@ const SourceViewer: React.FC<SourceViewerProps> = ({
     }
   }, [navigateNext, navigatePrev]);
 
-  // Generate highlighted content
+  // Generate content with search highlights applied on top of syntax highlighting
   const highlightedContent = useMemo(() => {
+    // If no search matches, just return syntax highlighted content
     if (matches.length === 0) {
-      return escapeHtml(content);
+      return syntaxHighlightedContent;
     }
 
+    // For search highlighting, we need to work with the original content
+    // and apply search highlights, then syntax highlight the segments between matches
+    // This is complex because syntax highlighting produces HTML, and we need to
+    // inject search highlights into it.
+    //
+    // A simpler approach: create a separate search highlight layer that uses
+    // the same positioning. We'll overlay the search highlights on top.
+    //
+    // For now, use plain text with search highlights when searching is active
     const parts: string[] = [];
     let lastEnd = 0;
 
@@ -180,7 +261,7 @@ const SourceViewer: React.FC<SourceViewerProps> = ({
     }
 
     return parts.join('');
-  }, [content, matches, currentMatchIndex]);
+  }, [content, syntaxHighlightedContent, matches, currentMatchIndex]);
 
   // Sync scroll between pre and highlight overlay
   const handleScroll = useCallback(() => {
@@ -204,6 +285,9 @@ const SourceViewer: React.FC<SourceViewerProps> = ({
     }
   }, [searchQuery, matches.length, currentMatchIndex, scrollToCurrentMatch]);
 
+  // Determine if we're showing search results (plain text) or syntax highlighted content
+  const isSearching = matches.length > 0;
+
   return (
     <div
       ref={containerRef}
@@ -214,7 +298,7 @@ const SourceViewer: React.FC<SourceViewerProps> = ({
       <div className="source-viewer-container">
         <div
           ref={highlightRef}
-          className="source-viewer-highlight"
+          className={`source-viewer-highlight ${!isSearching ? 'syntax-highlighted' : ''}`}
           dangerouslySetInnerHTML={{ __html: highlightedContent }}
         />
         <pre

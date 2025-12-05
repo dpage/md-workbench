@@ -14,6 +14,10 @@ export interface FileData {
   fileName: string;
   content: string;
   replaceCurrentTab?: boolean;
+  fileType?: string;
+  highlightLanguage?: string;
+  supportsRenderedView?: boolean;
+  supportsFormatting?: boolean;
 }
 
 export interface OpenFile {
@@ -218,5 +222,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = () => callback();
     ipcRenderer.on('folder-closed', listener);
     return () => ipcRenderer.removeListener('folder-closed', listener);
+  },
+
+  onShowPreferences: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('show-preferences', listener);
+    return () => ipcRenderer.removeListener('show-preferences', listener);
   },
 });
