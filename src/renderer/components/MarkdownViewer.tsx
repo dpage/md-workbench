@@ -430,7 +430,7 @@ const Admonition: React.FC<{
   );
 };
 
-const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
+const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
   content,
   filePath,
   initialScrollPosition,
@@ -838,6 +838,8 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = ({
       </div>
     </div>
   );
-};
+});
+
+MarkdownViewer.displayName = 'MarkdownViewer';
 
 export default MarkdownViewer;

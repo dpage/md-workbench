@@ -10,6 +10,8 @@
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import MarkdownViewer, { SearchHighlightOptions } from './MarkdownViewer';
 import SearchBar, { SearchOptions, SearchResult } from './SearchBar';
+import FormattingToolbar from './FormattingToolbar';
+import { FormattingResult } from '../utils/markdownFormatting';
 
 // Helper to escape HTML entities
 function escapeHtml(text: string): string {
@@ -41,6 +43,15 @@ interface Match {
   end: number;
 }
 
+// Undo/redo history entry
+interface HistoryEntry {
+  content: string;
+  selectionStart: number;
+  selectionEnd: number;
+}
+
+const MAX_UNDO_STACK_SIZE = 100;
+
 const SplitEditor: React.FC<SplitEditorProps> = ({
   content,
   fileName,
@@ -58,13 +69,241 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   const [splitRatio, setSplitRatio] = useState(0.5); // 0-1, left panel width ratio
   const [isDragging, setIsDragging] = useState(false);
   const [editedContent, setEditedContent] = useState(content);
+  // Debounced content for the preview - only updates 500ms after typing stops
+  const [previewContent, setPreviewContent] = useState(content);
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(initialMatchIndex);
   const [lastSearchQuery, setLastSearchQuery] = useState(initialSearchQuery);
   const [lastSearchOptions, setLastSearchOptions] = useState<SearchOptions>(
     initialSearchOptions ?? { caseSensitive: false, useRegex: false }
   );
+  const [selectionStart, setSelectionStart] = useState(0);
+  const [selectionEnd, setSelectionEnd] = useState(0);
   const hasScrolledToInitialMatchRef = useRef(false);
+  const parentUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentRef = useRef(content);
+
+  // Undo/redo stacks for formatting operations
+  const undoStackRef = useRef<HistoryEntry[]>([]);
+  const redoStackRef = useRef<HistoryEntry[]>([]);
+
+  // Keep content ref in sync for FormattingToolbar
+  useEffect(() => {
+    contentRef.current = editedContent;
+  }, [editedContent]);
+
+  // Debounced update to parent - prevents App re-render cascade on every keystroke
+  const debouncedParentUpdate = useCallback(
+    (newContent: string) => {
+      if (parentUpdateTimerRef.current) {
+        clearTimeout(parentUpdateTimerRef.current);
+      }
+      parentUpdateTimerRef.current = setTimeout(() => {
+        onContentChange?.(newContent);
+      }, 300);
+    },
+    [onContentChange]
+  );
+
+  // Push current state to undo stack - reads directly from DOM to avoid stale state
+  const pushToUndoStack = useCallback((textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) {
+      return;
+    }
+    const entry: HistoryEntry = {
+      content: contentRef.current,
+      selectionStart: textarea.selectionStart,
+      selectionEnd: textarea.selectionEnd,
+    };
+    undoStackRef.current.push(entry);
+    // Limit stack size
+    if (undoStackRef.current.length > MAX_UNDO_STACK_SIZE) {
+      undoStackRef.current.shift();
+    }
+    // Clear redo stack when new action is performed
+    redoStackRef.current = [];
+  }, []);
+
+  // Undo function
+  const handleUndo = useCallback(() => {
+    if (undoStackRef.current.length === 0) {
+      return;
+    }
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    // Push current state to redo stack
+    redoStackRef.current.push({
+      content: editedContent,
+      selectionStart,
+      selectionEnd,
+    });
+
+    // Pop from undo stack
+    const entry = undoStackRef.current.pop()!;
+
+    // Restore state
+    setEditedContent(entry.content);
+    contentRef.current = entry.content;
+
+    // Clear pending debounces and update immediately
+    if (parentUpdateTimerRef.current) {
+      clearTimeout(parentUpdateTimerRef.current);
+    }
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+    }
+    onContentChange?.(entry.content);
+    setPreviewContent(entry.content);
+
+    // Restore selection
+    requestAnimationFrame(() => {
+      textarea.setSelectionRange(entry.selectionStart, entry.selectionEnd);
+      setSelectionStart(entry.selectionStart);
+      setSelectionEnd(entry.selectionEnd);
+    });
+  }, [editedContent, selectionStart, selectionEnd, onContentChange]);
+
+  // Redo function
+  const handleRedo = useCallback(() => {
+    if (redoStackRef.current.length === 0) return;
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    // Push current state to undo stack
+    undoStackRef.current.push({
+      content: editedContent,
+      selectionStart,
+      selectionEnd,
+    });
+
+    // Pop from redo stack
+    const entry = redoStackRef.current.pop()!;
+
+    // Restore state
+    setEditedContent(entry.content);
+    contentRef.current = entry.content;
+
+    // Clear pending debounces and update immediately
+    if (parentUpdateTimerRef.current) {
+      clearTimeout(parentUpdateTimerRef.current);
+    }
+    if (previewTimerRef.current) {
+      clearTimeout(previewTimerRef.current);
+    }
+    onContentChange?.(entry.content);
+    setPreviewContent(entry.content);
+
+    // Restore selection
+    requestAnimationFrame(() => {
+      textarea.setSelectionRange(entry.selectionStart, entry.selectionEnd);
+      setSelectionStart(entry.selectionStart);
+      setSelectionEnd(entry.selectionEnd);
+    });
+  }, [editedContent, selectionStart, selectionEnd, onContentChange]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (parentUpdateTimerRef.current) {
+        clearTimeout(parentUpdateTimerRef.current);
+      }
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Handle keyboard shortcuts for undo/redo
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+      const key = e.key.toLowerCase();
+
+      if (modKey && key === 'z' && !e.shiftKey) {
+        // Undo: Cmd+Z (Mac) or Ctrl+Z (Windows/Linux)
+        // Only intercept if we have something in our undo stack
+        if (undoStackRef.current.length > 0) {
+          e.preventDefault();
+          handleUndo();
+        }
+        // Otherwise let native undo handle it
+      } else if (modKey && e.shiftKey && key === 'z') {
+        // Redo: Cmd+Shift+Z (Mac)
+        if (redoStackRef.current.length > 0) {
+          e.preventDefault();
+          handleRedo();
+        }
+      } else if (modKey && key === 'y') {
+        // Redo: Ctrl+Y (Windows/Linux)
+        if (redoStackRef.current.length > 0) {
+          e.preventDefault();
+          handleRedo();
+        }
+      }
+    },
+    [handleUndo, handleRedo]
+  );
+
+  // Track selection changes in textarea - only when selection actually changes
+  const handleSelectionChange = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const newStart = textarea.selectionStart;
+      const newEnd = textarea.selectionEnd;
+      // Only update state if selection actually changed
+      setSelectionStart(prev => prev !== newStart ? newStart : prev);
+      setSelectionEnd(prev => prev !== newEnd ? newEnd : prev);
+    }
+  }, []);
+
+  // Get current selection for formatting toolbar
+  const getSelection = useCallback(() => {
+    return {
+      start: selectionStart,
+      end: selectionEnd,
+      text: editedContent.substring(selectionStart, selectionEnd),
+    };
+  }, [selectionStart, selectionEnd, editedContent]);
+
+  // Handle formatting operations from toolbar
+  const handleFormatting = useCallback(
+    (result: FormattingResult) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      // Push current state to undo stack before making changes
+      pushToUndoStack(textarea);
+
+      // Update the content - immediate parent update for intentional actions
+      setEditedContent(result.newContent);
+      contentRef.current = result.newContent;
+      // Clear any pending debounced updates and update immediately
+      if (parentUpdateTimerRef.current) {
+        clearTimeout(parentUpdateTimerRef.current);
+      }
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+      }
+      onContentChange?.(result.newContent);
+      setPreviewContent(result.newContent);
+
+      // Focus the textarea and set the new selection
+      textarea.focus();
+
+      // Use requestAnimationFrame to ensure content is updated before setting selection
+      requestAnimationFrame(() => {
+        textarea.setSelectionRange(result.newSelectionStart, result.newSelectionEnd);
+        setSelectionStart(result.newSelectionStart);
+        setSelectionEnd(result.newSelectionEnd);
+      });
+    },
+    [onContentChange, pushToUndoStack]
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const sourceRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -73,9 +312,20 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   const isScrollingSyncRef = useRef(false);
 
   // Update local content when prop changes (e.g., file reload)
+  // Only reset if content changed externally (not from our own edits)
   useEffect(() => {
+    // If the content prop matches our current edited content, this is just
+    // the parent syncing back our own edit - don't reset anything
+    if (content === editedContent) {
+      return;
+    }
+    // External change (file reload) - reset everything
     setEditedContent(content);
-  }, [content]);
+    setPreviewContent(content);
+    // Clear undo/redo stacks on external file changes
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+  }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Report match index changes to parent
   useEffect(() => {
@@ -86,9 +336,17 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newContent = e.target.value;
       setEditedContent(newContent);
-      onContentChange?.(newContent);
+      // Debounce the parent update to prevent App re-render cascade on every keystroke
+      debouncedParentUpdate(newContent);
+      // Debounce preview update - only update after 500ms of no typing
+      if (previewTimerRef.current) {
+        clearTimeout(previewTimerRef.current);
+      }
+      previewTimerRef.current = setTimeout(() => {
+        setPreviewContent(newContent);
+      }, 500);
     },
-    [onContentChange]
+    [debouncedParentUpdate]
   );
 
   // Handle divider drag
@@ -414,11 +672,11 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     };
   }, [lastSearchQuery, lastSearchOptions]);
 
-  // Generate highlighted content for the source editor overlay
+  // Generate highlighted content for the source editor overlay - only when search is active
   const highlightedSourceContent = useMemo(() => {
+    // Skip processing entirely when no search is active
     if (matches.length === 0) {
-      // Return content with HTML entities escaped, preserving whitespace
-      return escapeHtml(editedContent) + '\n'; // Extra newline to match textarea behavior
+      return null;
     }
 
     // Build highlighted HTML
@@ -483,18 +741,28 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
           className="split-panel split-panel-source"
           style={{ width: `${splitRatio * 100}%` }}
         >
+          <FormattingToolbar
+            contentRef={contentRef}
+            onFormat={handleFormatting}
+            onRequestSelection={getSelection}
+          />
           <div className="source-editor-container">
-            <div
-              ref={highlightRef}
-              className="source-editor-highlight"
-              dangerouslySetInnerHTML={{ __html: highlightedSourceContent }}
-            />
+            {highlightedSourceContent && (
+              <div
+                ref={highlightRef}
+                className="source-editor-highlight"
+                dangerouslySetInnerHTML={{ __html: highlightedSourceContent }}
+              />
+            )}
             <textarea
               ref={textareaRef}
               className="source-editor"
               value={editedContent}
               onChange={handleContentChange}
+              onKeyDown={handleKeyDown}
               onScroll={handleSourceScroll}
+              onSelect={handleSelectionChange}
+              onClick={handleSelectionChange}
               spellCheck={false}
             />
           </div>
@@ -508,7 +776,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
           style={{ width: `${(1 - splitRatio) * 100}%` }}
         >
           <MarkdownViewer
-            content={editedContent}
+            content={previewContent}
             fileName={fileName}
             filePath={filePath}
             searchHighlight={searchHighlight}

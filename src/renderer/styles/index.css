@@ -2052,3 +2052,421 @@ body {
 .folder-panel-content::-webkit-scrollbar-thumb:hover {
   background-color: var(--scrollbar-thumb-hover);
 }
+
+/* Formatting Toolbar Styles */
+.formatting-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.formatting-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.formatting-separator {
+  width: 1px;
+  height: 20px;
+  background-color: var(--border-color);
+  margin: 0 6px;
+}
+
+.formatting-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 28px;
+  height: 28px;
+}
+
+.formatting-button:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.formatting-button:active {
+  background-color: var(--accent-bg);
+}
+
+.formatting-button svg {
+  flex-shrink: 0;
+}
+
+.formatting-button-text {
+  min-width: 70px;
+  text-align: left;
+}
+
+.formatting-dropdown-trigger {
+  padding: 6px 10px;
+  min-width: 110px;
+}
+
+.formatting-dropdown-trigger .dropdown-chevron {
+  margin-left: auto;
+}
+
+/* Style dropdown */
+.formatting-dropdown {
+  position: relative;
+}
+
+.formatting-dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 110px;
+  height: 28px;
+}
+
+.formatting-dropdown-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.formatting-dropdown-btn.open {
+  background-color: var(--accent-bg);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.formatting-dropdown-label {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formatting-dropdown-arrow {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.formatting-dropdown-btn.open .formatting-dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.formatting-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 140px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  padding: 4px 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.formatting-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.formatting-dropdown-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.formatting-dropdown-item.formatting-h1 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.formatting-dropdown-item.formatting-h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.formatting-dropdown-item.formatting-h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.formatting-dropdown-item.formatting-h4 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.formatting-dropdown-item.formatting-h5 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.formatting-dropdown-item.formatting-h6 {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Code dropdown specific */
+.formatting-code-menu {
+  min-width: 180px;
+}
+
+.formatting-dropdown-separator {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 4px 0;
+}
+
+.formatting-dropdown-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding: 6px 12px 4px;
+}
+
+/* Dialog styles */
+.formatting-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.formatting-dialog {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  min-width: 380px;
+  max-width: 90vw;
+}
+
+.formatting-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.formatting-dialog-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.formatting-dialog-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.formatting-dialog-close:hover {
+  background-color: var(--close-hover-bg);
+  color: var(--close-hover-color);
+}
+
+.formatting-dialog-content,
+.formatting-dialog-body {
+  padding: 16px;
+}
+
+.formatting-dialog-body label {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.formatting-dialog-body label:last-child {
+  margin-bottom: 0;
+}
+
+.formatting-dialog-body input {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  margin-top: 6px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.formatting-dialog-body input:focus {
+  border-color: var(--accent-primary);
+}
+
+.formatting-dialog-body input::placeholder {
+  color: var(--text-muted);
+}
+
+.formatting-dialog-field {
+  margin-bottom: 12px;
+}
+
+.formatting-dialog-field:last-child {
+  margin-bottom: 0;
+}
+
+.formatting-dialog-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.formatting-dialog-input {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.formatting-dialog-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.formatting-dialog-input::placeholder {
+  color: var(--text-muted);
+}
+
+.formatting-dialog-select {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.formatting-dialog-select:focus {
+  border-color: var(--accent-primary);
+}
+
+.formatting-dialog-row {
+  display: flex;
+  gap: 12px;
+}
+
+.formatting-dialog-row .formatting-dialog-field {
+  flex: 1;
+}
+
+.formatting-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+}
+
+.formatting-dialog-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.formatting-dialog-btn.secondary,
+.formatting-dialog-btn-cancel {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.formatting-dialog-btn.secondary:hover,
+.formatting-dialog-btn-cancel:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.formatting-dialog-btn.primary,
+.formatting-dialog-btn-primary {
+  background-color: var(--accent-primary);
+  border: none;
+  color: white;
+}
+
+.formatting-dialog-btn.primary:hover,
+.formatting-dialog-btn-primary:hover {
+  background-color: var(--accent-hover);
+}
+
+.formatting-dialog-btn.primary:disabled,
+.formatting-dialog-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Source panel with formatting toolbar */
+.split-panel-source {
+  display: flex;
+  flex-direction: column;
+}
+
+.split-panel-source .source-editor-container {
+  flex: 1;
+  min-height: 0;
+}
