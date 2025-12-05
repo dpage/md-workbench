@@ -11,6 +11,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 
 interface ToolbarProps {
   onOpenFile: () => void;
+  onSave?: () => void;
+  onSaveAs?: () => void;
   onBack: () => void;
   onForward: () => void;
   canGoBack: boolean;
@@ -20,6 +22,7 @@ interface ToolbarProps {
   editMode: boolean;
   onToggleEditMode: () => void;
   hasActiveTab: boolean;
+  isDirty?: boolean;
   supportsRenderedView?: boolean;
   onCut?: () => void;
   onCopy?: () => void;
@@ -31,6 +34,8 @@ interface ToolbarProps {
 
 const Toolbar: React.FC<ToolbarProps> = ({
   onOpenFile,
+  onSave,
+  onSaveAs,
   onBack,
   onForward,
   canGoBack,
@@ -40,6 +45,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   editMode,
   onToggleEditMode,
   hasActiveTab,
+  isDirty = false,
   supportsRenderedView = true,
   onCut,
   onCopy,
@@ -310,6 +316,88 @@ const Toolbar: React.FC<ToolbarProps> = ({
             />
           </svg>
           <span>Open</span>
+        </button>
+        <button
+          className="toolbar-button toolbar-button-save"
+          onClick={onSave}
+          disabled={!hasActiveTab || !isDirty}
+          title="Save (Cmd+S)"
+          aria-label="Save"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12.5 14H3.5C2.94772 14 2.5 13.5523 2.5 13V3C2.5 2.44772 2.94772 2 3.5 2H10.5L13.5 5V13C13.5 13.5523 13.0523 14 12.5 14Z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M5 2V5H10"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M5 14V10H11V14"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span>Save</span>
+        </button>
+        <button
+          className="toolbar-button toolbar-button-save-as"
+          onClick={onSaveAs}
+          disabled={!hasActiveTab}
+          title="Save As (Cmd+Shift+S)"
+          aria-label="Save As"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M11.5 14H3.5C2.94772 14 2.5 13.5523 2.5 13V3C2.5 2.44772 2.94772 2 3.5 2H9.5L12.5 5V9"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M5 2V5H9"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M5 14V10H9V14"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M12 11V15M10 13H14"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+          <span>Save As</span>
         </button>
         {supportsRenderedView && (
           <button

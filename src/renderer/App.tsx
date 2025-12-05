@@ -1043,6 +1043,8 @@ const App: React.FC = () => {
     <div className="app" data-theme={theme}>
       <Toolbar
         onOpenFile={handleOpenFile}
+        onSave={handleSave}
+        onSaveAs={handleSaveAs}
         onBack={handleBack}
         onForward={handleForward}
         canGoBack={canGoBack}
@@ -1052,6 +1054,7 @@ const App: React.FC = () => {
         editMode={activeTab?.editMode ?? false}
         onToggleEditMode={handleToggleEditMode}
         hasActiveTab={!!activeTab}
+        isDirty={activeTab?.isDirty ?? false}
         supportsRenderedView={activeTab?.supportsRenderedView ?? true}
         onCut={handleCut}
         onCopy={handleCopy}
