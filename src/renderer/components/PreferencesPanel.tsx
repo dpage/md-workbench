@@ -335,6 +335,20 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
                   Highlight the line where the cursor is currently positioned.
                 </p>
               </div>
+
+              <div className="preferences-group">
+                <label className="preferences-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={localPreferences.editor?.showStatusBar ?? true}
+                    onChange={(e) => handleEditorChange('showStatusBar', e.target.checked)}
+                  />
+                  <span>Show status bar</span>
+                </label>
+                <p className="preferences-description">
+                  Display a status bar at the bottom showing file path, cursor position, and file information.
+                </p>
+              </div>
             </div>
           )}
 

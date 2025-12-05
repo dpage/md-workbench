@@ -624,53 +624,6 @@ function createMenu(): void {
     {
       label: 'View',
       submenu: [
-        {
-          label: 'Theme',
-          submenu: [
-            {
-              label: 'System Default',
-              type: 'radio',
-              checked: store.get('theme') === 'system',
-              click: () => setTheme('system'),
-            },
-            {
-              label: 'Light',
-              type: 'radio',
-              checked: store.get('theme') === 'light',
-              click: () => setTheme('light'),
-            },
-            {
-              label: 'Dark',
-              type: 'radio',
-              checked: store.get('theme') === 'dark',
-              click: () => setTheme('dark'),
-            },
-          ],
-        },
-        { type: 'separator' },
-        {
-          label: 'Auto-Reload Files',
-          type: 'checkbox',
-          checked: getPreferencesWithDefaults().autoReload,
-          click: (menuItem) => {
-            const preferences = getPreferencesWithDefaults();
-            preferences.autoReload = menuItem.checked;
-            store.set('preferences', preferences);
-            mainWindow?.webContents.send('preferences-changed', preferences);
-          },
-        },
-        {
-          label: 'Open Links in New Tab',
-          type: 'checkbox',
-          checked: getPreferencesWithDefaults().openLinksInNewTab,
-          click: (menuItem) => {
-            const preferences = getPreferencesWithDefaults();
-            preferences.openLinksInNewTab = menuItem.checked;
-            store.set('preferences', preferences);
-            mainWindow?.webContents.send('preferences-changed', preferences);
-          },
-        },
-        { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
         { role: 'toggleDevTools' },

@@ -63,6 +63,11 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
+interface CursorPosition {
+  line: number;
+  column: number;
+}
+
 interface SplitEditorProps {
   content: string;
   fileName: string;
@@ -76,6 +81,7 @@ interface SplitEditorProps {
   initialMatchIndex?: number;
   onSearchStateChange?: (query: string, options: SearchOptions) => void;
   onCurrentMatchChange?: (matchIndex: number, totalMatches: number) => void;
+  onCursorPositionChange?: (position: CursorPosition) => void;
   supportsFormatting?: boolean;
   supportsRenderedView?: boolean;
   highlightLanguage?: string;
@@ -115,6 +121,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   initialMatchIndex = 0,
   onSearchStateChange,
   onCurrentMatchChange,
+  onCursorPositionChange,
   supportsFormatting = true,
   supportsRenderedView = true,
   highlightLanguage = 'markdown',
@@ -151,6 +158,21 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     const textBeforeCursor = editedContent.substring(0, selectionStart);
     return textBeforeCursor.split('\n').length - 1; // 0-indexed line number
   }, [editedContent, selectionStart]);
+
+  // Calculate column number (position within the current line)
+  const currentColumn = useMemo(() => {
+    const textBeforeCursor = editedContent.substring(0, selectionStart);
+    const lastNewlineIndex = textBeforeCursor.lastIndexOf('\n');
+    return selectionStart - lastNewlineIndex; // 1-indexed column
+  }, [editedContent, selectionStart]);
+
+  // Report cursor position changes to parent
+  useEffect(() => {
+    onCursorPositionChange?.({
+      line: currentLineNumber + 1, // Convert to 1-indexed
+      column: currentColumn,
+    });
+  }, [currentLineNumber, currentColumn, onCursorPositionChange]);
 
   // Undo/redo stacks for formatting operations
   const undoStackRef = useRef<HistoryEntry[]>([]);

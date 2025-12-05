@@ -18,9 +18,15 @@ import SearchBar, { SearchOptions, SearchResult } from './components/SearchBar';
 import HelpPanel from './components/HelpPanel';
 import FolderPanel from './components/FolderPanel';
 import PreferencesPanel from './components/PreferencesPanel';
+import StatusBar from './components/StatusBar';
 import { Preferences, DEFAULT_PREFERENCES } from '../shared/preferences';
 import { FileType } from '../shared/fileTypes';
 import { formatDocument, canFormatDocument } from './utils/formatters';
+
+interface CursorPosition {
+  line: number;
+  column: number;
+}
 
 interface FileData {
   filePath: string;
@@ -153,6 +159,7 @@ const App: React.FC = () => {
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [currentFolder, setCurrentFolder] = useState<FolderData | null>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
+  const [cursorPosition, setCursorPosition] = useState<CursorPosition>({ line: 1, column: 1 });
 
   // Search state for view mode (non-edit mode)
   const [viewSearchQuery, setViewSearchQuery] = useState('');
@@ -758,6 +765,11 @@ const App: React.FC = () => {
     setViewMatchCount(totalMatches);
   }, []);
 
+  // Handle cursor position changes from SplitEditor
+  const handleCursorPositionChange = useCallback((position: CursorPosition) => {
+    setCursorPosition(position);
+  }, []);
+
   // Help panel
   const handleToggleHelp = useCallback(() => {
     setShowHelp((prev) => !prev);
@@ -1202,6 +1214,7 @@ const App: React.FC = () => {
                 initialMatchIndex={viewCurrentMatch - 1}
                 onSearchStateChange={handleSearchStateChange}
                 onCurrentMatchChange={handleCurrentMatchChange}
+                onCursorPositionChange={handleCursorPositionChange}
                 supportsFormatting={activeTab.supportsFormatting ?? true}
                 supportsRenderedView={activeTab.supportsRenderedView ?? true}
                 highlightLanguage={activeTab.highlightLanguage}
@@ -1273,6 +1286,18 @@ const App: React.FC = () => {
           ) : null}
         </div>
       </main>
+      {activeTab && (preferences.editor?.showStatusBar ?? true) && (
+        <StatusBar
+          filePath={activeTab.filePath}
+          fileType={activeTab.fileType}
+          cursorLine={activeTab.editMode ? cursorPosition.line : undefined}
+          cursorColumn={activeTab.editMode ? cursorPosition.column : undefined}
+          totalLines={activeTab.content.split('\n').length}
+          editMode={activeTab.editMode ?? false}
+          isDirty={activeTab.isDirty}
+          lineEnding={activeTab.content.includes('\r\n') ? 'CRLF' : 'LF'}
+        />
+      )}
       <HelpPanel isOpen={showHelp} onClose={handleCloseHelp} />
       <PreferencesPanel
         isOpen={showPreferences}

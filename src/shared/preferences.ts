@@ -56,11 +56,13 @@ export interface FileTypeDefaults {
 export interface EditorOptions {
   showColumnRuler: boolean;
   showCurrentLineHighlight: boolean;
+  showStatusBar: boolean;
 }
 
 export const DEFAULT_EDITOR_OPTIONS: EditorOptions = {
   showColumnRuler: true,
   showCurrentLineHighlight: true,
+  showStatusBar: true,
 };
 
 export interface Preferences {
