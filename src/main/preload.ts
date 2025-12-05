@@ -82,6 +82,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopWatching: (filePath: string) =>
     ipcRenderer.invoke('stop-watching', filePath),
 
+  // Folder watcher operations
+  startWatchingFolder: (folderPath: string) =>
+    ipcRenderer.invoke('start-watching-folder', folderPath),
+  stopWatchingFolder: (folderPath: string) =>
+    ipcRenderer.invoke('stop-watching-folder', folderPath),
+
   // Link handling
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   openLocalFile: (filePath: string) =>
@@ -222,6 +228,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = () => callback();
     ipcRenderer.on('folder-closed', listener);
     return () => ipcRenderer.removeListener('folder-closed', listener);
+  },
+
+  onFolderContentsChanged: (
+    callback: (data: {
+      folderPath: string;
+      eventType: string;
+      filename: string | null;
+    }) => void
+  ) => {
+    const listener = (
+      _: Electron.IpcRendererEvent,
+      data: { folderPath: string; eventType: string; filename: string | null }
+    ) => {
+      callback(data);
+    };
+    ipcRenderer.on('folder-contents-changed', listener);
+    return () =>
+      ipcRenderer.removeListener('folder-contents-changed', listener);
   },
 
   onShowPreferences: (callback: () => void) => {

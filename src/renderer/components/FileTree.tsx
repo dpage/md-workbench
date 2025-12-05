@@ -31,7 +31,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   const loadChildren = useCallback(async () => {
-    if (!entry.isDirectory || children.length > 0) return;
+    if (!entry.isDirectory) return;
 
     setIsLoading(true);
     try {
@@ -42,7 +42,29 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [entry.path, entry.isDirectory, children.length]);
+  }, [entry.path, entry.isDirectory]);
+
+  // Watch for folder content changes
+  useEffect(() => {
+    if (!entry.isDirectory || !isExpanded) return;
+
+    // Start watching this folder
+    window.electronAPI.startWatchingFolder(entry.path);
+
+    // Listen for changes to this folder
+    const unsubscribe = window.electronAPI.onFolderContentsChanged((data) => {
+      if (data.folderPath === entry.path) {
+        // Reload children when folder contents change
+        loadChildren();
+      }
+    });
+
+    return () => {
+      // Stop watching when collapsed or unmounted
+      window.electronAPI.stopWatchingFolder(entry.path);
+      unsubscribe();
+    };
+  }, [entry.isDirectory, entry.path, isExpanded, loadChildren]);
 
   const handleClick = useCallback(() => {
     if (entry.isDirectory) {
@@ -206,21 +228,42 @@ const FileTree: React.FC<FileTreeProps> = ({ folderPath, onFileClick }) => {
   const [entries, setEntries] = useState<FolderEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const loadFolder = async () => {
-      setIsLoading(true);
-      try {
-        const contents = await window.electronAPI.readFolderContents(folderPath);
-        setEntries(contents);
-      } catch (error) {
-        console.error('Error loading folder:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadFolder();
+  const loadFolder = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const contents = await window.electronAPI.readFolderContents(folderPath);
+      setEntries(contents);
+    } catch (error) {
+      console.error('Error loading folder:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [folderPath]);
+
+  // Initial load
+  useEffect(() => {
+    loadFolder();
+  }, [loadFolder]);
+
+  // Watch for root folder content changes
+  useEffect(() => {
+    // Start watching the root folder
+    window.electronAPI.startWatchingFolder(folderPath);
+
+    // Listen for changes to the root folder
+    const unsubscribe = window.electronAPI.onFolderContentsChanged((data) => {
+      if (data.folderPath === folderPath) {
+        // Reload root entries when folder contents change
+        loadFolder();
+      }
+    });
+
+    return () => {
+      // Stop watching when unmounted
+      window.electronAPI.stopWatchingFolder(folderPath);
+      unsubscribe();
+    };
+  }, [folderPath, loadFolder]);
 
   if (isLoading) {
     return (

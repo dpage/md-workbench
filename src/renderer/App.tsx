@@ -74,6 +74,8 @@ declare global {
       setPreferences: (preferences: Preferences) => Promise<void>;
       startWatching: (filePath: string) => Promise<void>;
       stopWatching: (filePath: string) => Promise<void>;
+      startWatchingFolder: (folderPath: string) => Promise<void>;
+      stopWatchingFolder: (folderPath: string) => Promise<void>;
       openExternal: (url: string) => Promise<void>;
       openLocalFile: (filePath: string) => Promise<void>;
       getOpenLinksInNewTab: () => Promise<boolean>;
@@ -110,6 +112,13 @@ declare global {
       getCurrentFolder: () => Promise<FolderData | null>;
       onFolderOpened: (callback: (data: FolderData) => void) => () => void;
       onFolderClosed: (callback: () => void) => () => void;
+      onFolderContentsChanged: (
+        callback: (data: {
+          folderPath: string;
+          eventType: string;
+          filename: string | null;
+        }) => void
+      ) => () => void;
       onShowPreferences: (callback: () => void) => () => void;
     };
   }

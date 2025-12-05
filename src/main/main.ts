@@ -122,6 +122,12 @@ let filesToOpenOnReady: string[] = [];
 // File watchers map
 const fileWatchers = new Map<string, fs.FSWatcher>();
 
+// Folder watchers map - for watching directory changes
+const folderWatchers = new Map<string, fs.FSWatcher>();
+
+// Debounce timers for folder changes to avoid duplicate events
+const folderChangeDebounce = new Map<string, NodeJS.Timeout>();
+
 // Track if we're force closing (bypass unsaved check)
 let forceClose = false;
 
@@ -194,6 +200,52 @@ function stopWatchingFile(filePath: string): void {
 function stopAllWatchers(): void {
   fileWatchers.forEach((watcher) => watcher.close());
   fileWatchers.clear();
+  folderWatchers.forEach((watcher) => watcher.close());
+  folderWatchers.clear();
+  folderChangeDebounce.forEach((timer) => clearTimeout(timer));
+  folderChangeDebounce.clear();
+}
+
+function startWatchingFolder(folderPath: string): void {
+  if (folderWatchers.has(folderPath)) return;
+
+  try {
+    const watcher = fs.watch(folderPath, (eventType, filename) => {
+      // Debounce folder change events
+      const existingTimer = folderChangeDebounce.get(folderPath);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      const timer = setTimeout(() => {
+        folderChangeDebounce.delete(folderPath);
+        mainWindow?.webContents.send('folder-contents-changed', {
+          folderPath,
+          eventType,
+          filename,
+        });
+      }, 200); // 200ms debounce
+
+      folderChangeDebounce.set(folderPath, timer);
+    });
+
+    folderWatchers.set(folderPath, watcher);
+  } catch (error) {
+    console.error(`Error watching folder: ${folderPath}`, error);
+  }
+}
+
+function stopWatchingFolder(folderPath: string): void {
+  const watcher = folderWatchers.get(folderPath);
+  if (watcher) {
+    watcher.close();
+    folderWatchers.delete(folderPath);
+  }
+  const timer = folderChangeDebounce.get(folderPath);
+  if (timer) {
+    clearTimeout(timer);
+    folderChangeDebounce.delete(folderPath);
+  }
 }
 
 function addToRecentFiles(filePath: string): void {
@@ -926,6 +978,15 @@ ipcMain.handle('start-watching', (_, filePath: string) => {
 
 ipcMain.handle('stop-watching', (_, filePath: string) => {
   stopWatchingFile(filePath);
+});
+
+// Folder watcher handlers
+ipcMain.handle('start-watching-folder', (_, folderPath: string) => {
+  startWatchingFolder(folderPath);
+});
+
+ipcMain.handle('stop-watching-folder', (_, folderPath: string) => {
+  stopWatchingFolder(folderPath);
 });
 
 // Link handling
