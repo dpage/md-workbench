@@ -34,7 +34,7 @@ More examples: CO~2~ (carbon dioxide), x^2^ + y^2^ = z^2^ (Pythagorean theorem)
 
 [Relative link to README](README.md)
 
-![Placeholder image](https://via.placeholder.com/150 "Sample Image")
+![Placeholder image](./DEMO.png "Sample Image")
 
 ---
 
