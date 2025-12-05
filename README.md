@@ -40,6 +40,22 @@ A modern, feature-rich file viewer and editor built with Electron and React, wit
   - Auto-generated Table of Contents
   - Subscript (~sub~) and superscript (^sup^)
 
+- **Code Formatting**
+  - Automatic code formatting for multiple file types
+  - Supported formats: JSON, YAML, SQL, JavaScript, TypeScript, CSS, HTML, XML, Markdown
+  - Configurable indent size (2, 4, or 8 spaces)
+  - Tabs or spaces for indentation
+  - Maximum line length setting
+  - Format on save option
+  - SQL dialect support (PostgreSQL, SQLite, Standard SQL)
+  - Sort JSON/YAML keys alphabetically
+
+- **Editor Features**
+  - Status bar showing file path, cursor position, file type, encoding, and line endings
+  - Column ruler at configurable line length
+  - Current line highlight
+  - Auto-save with configurable debounce
+
 - **Navigation**
   - Tabbed interface for multiple documents
   - Back/forward navigation history
@@ -47,9 +63,11 @@ A modern, feature-rich file viewer and editor built with Electron and React, wit
   - External links open in default browser
 
 - **Preferences**
-  - General settings (auto-reload, link behavior)
+  - General settings (auto-reload, auto-save, link behavior)
   - Appearance (light, dark, or system theme)
+  - Editor options (status bar, column ruler, current line highlight)
   - File type defaults (choose View or Edit mode per file type)
+  - Formatting options (indent size, tabs/spaces, line length, format on save, SQL dialect)
 
 - **File Management**
   - Auto-reload on external file changes
@@ -114,9 +132,11 @@ npm run package
 
 Open preferences with **Cmd+,** (macOS) or **Ctrl+,** (Windows/Linux) to configure:
 
-- **General**: Auto-reload files, link behavior
+- **General**: Auto-reload files, auto-save, link behavior
 - **Appearance**: Light, dark, or system theme
+- **Editor**: Status bar, column ruler, current line highlight
 - **File Types**: Default viewing mode (View or Edit) for each file type
+- **Formatting**: Indent size, tabs/spaces, max line length, format on save, SQL dialect, and more
 
 ### Keyboard Shortcuts
 
@@ -127,6 +147,7 @@ Open preferences with **Cmd+,** (macOS) or **Ctrl+,** (Windows/Linux) to configu
 | Save As | Cmd+Shift+S | Ctrl+Shift+S |
 | Find | Cmd+F | Ctrl+F |
 | Find & Replace | Cmd+H | Ctrl+H |
+| Format Document | Shift+Alt+F | Shift+Alt+F |
 | Close Tab | Cmd+W | Ctrl+W |
 | Navigate Back | Cmd+[ | Alt+Left |
 | Navigate Forward | Cmd+] | Alt+Right |
@@ -141,6 +162,23 @@ Open preferences with **Cmd+,** (macOS) or **Ctrl+,** (Windows/Linux) to configu
 5. Toggle **.\*** for regular expression search
 
 In edit mode, press **Cmd/Ctrl+H** to enable find and replace.
+
+### Code Formatting
+
+Format your code automatically using:
+
+1. Click the **Format** button in the editor toolbar
+2. Press **Shift+Alt+F** keyboard shortcut
+3. Enable **Format on save** in Preferences → Formatting
+
+Supported file types:
+- **JSON**: Pretty-print with configurable indentation, optional key sorting
+- **YAML**: Consistent formatting with proper indentation
+- **SQL**: Format with dialect-specific rules (PostgreSQL, SQLite, Standard SQL)
+- **JavaScript/TypeScript**: Prettier-based formatting
+- **CSS/SCSS/Less**: Prettier-based formatting
+- **HTML/XML**: Prettier-based formatting
+- **Markdown**: Prettier-based formatting with prose wrapping
 
 ## Development
 
@@ -157,6 +195,7 @@ md-workbench/
 │   │   ├── components/ # React components
 │   │   ├── plugins/    # Markdown plugins
 │   │   ├── utils/      # Utility functions
+│   │   │   └── formatters/ # Code formatters
 │   │   └── styles/     # CSS styles
 │   ├── shared/         # Shared types and constants
 │   │   ├── fileTypes.ts    # File type definitions

@@ -162,6 +162,27 @@ const HelpContent: React.FC = () => (
         <li>Press <kbd>Cmd+Shift+S</kbd> / <kbd>Ctrl+Shift+S</kbd> to save as</li>
         <li>Unsaved changes are indicated with a dot on the tab</li>
         <li>You'll be prompted to save when closing a tab with unsaved changes</li>
+        <li>Enable auto-save in Preferences to save automatically after typing</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Code Formatting</h2>
+      <p>Format your code automatically:</p>
+      <ul>
+        <li>Press <kbd>Shift+Alt+F</kbd> to format the document</li>
+        <li>Click the <strong>Format</strong> button in the editor toolbar</li>
+        <li>Enable <strong>Format on save</strong> in Preferences → Formatting</li>
+      </ul>
+      <p>Supported file types:</p>
+      <ul>
+        <li><strong>JSON</strong> — Pretty-print with optional key sorting</li>
+        <li><strong>YAML</strong> — Consistent formatting with proper indentation</li>
+        <li><strong>SQL</strong> — Format with dialect-specific rules</li>
+        <li><strong>JavaScript/TypeScript</strong> — Prettier-based formatting</li>
+        <li><strong>CSS/SCSS/Less</strong> — Prettier-based formatting</li>
+        <li><strong>HTML/XML</strong> — Prettier-based formatting</li>
+        <li><strong>Markdown</strong> — Prettier-based with prose wrapping</li>
       </ul>
     </section>
 
@@ -202,6 +223,11 @@ const HelpContent: React.FC = () => (
             <td><kbd>Ctrl+H</kbd></td>
           </tr>
           <tr>
+            <td>Format Document</td>
+            <td><kbd>Shift+Alt+F</kbd></td>
+            <td><kbd>Shift+Alt+F</kbd></td>
+          </tr>
+          <tr>
             <td>Close Tab</td>
             <td><kbd>Cmd+W</kbd></td>
             <td><kbd>Ctrl+W</kbd></td>
@@ -229,9 +255,11 @@ const HelpContent: React.FC = () => (
       <h2>Preferences</h2>
       <p>Open preferences with <kbd>Cmd+,</kbd> (macOS) or <kbd>Ctrl+,</kbd> (Windows/Linux):</p>
       <ul>
-        <li><strong>General</strong> — Auto-reload files, link behavior</li>
+        <li><strong>General</strong> — Auto-reload files, auto-save, link behavior</li>
         <li><strong>Appearance</strong> — Light, dark, or system theme</li>
+        <li><strong>Editor</strong> — Status bar, column ruler, current line highlight</li>
         <li><strong>File Types</strong> — Set default viewing mode (View or Edit) per file type</li>
+        <li><strong>Formatting</strong> — Indent size, tabs/spaces, max line length, format on save, SQL dialect</li>
       </ul>
     </section>
 
