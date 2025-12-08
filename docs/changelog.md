@@ -1,0 +1,44 @@
+# Changelog
+
+All notable changes to Markdown Workbench will be documented in this file.
+
+## [1.0.0-alpha.2] - 2025-12-08
+
+### Changed
+- **Simplified view mode UI**: Removed source view entirely. Non-markdown files now display in a read-only source viewer.
+- **New view modes for Markdown files**: Preview, Edit, and Split modes replace the previous source/edit toggle.
+- **Preferences redesign**: Removed "File Types" tab. Added new "Markdown" preferences tab with:
+  - Default view mode selection (Preview/Edit/Split)
+  - Option to remember view mode per file
+
+### Added
+- View menu items for switching modes with keyboard shortcuts (Cmd/Ctrl+1/2/3)
+- Per-file view mode memory that persists across sessions
+- Toolbar segmented control for view mode switching (Markdown files only)
+
+### Removed
+- Source view mode
+- Per-file-type default view mode preferences
+
+## [1.0.0-alpha.1] - 2025-12-07
+
+### Added
+- Initial alpha release
+- Markdown preview with syntax highlighting
+- Split editor with side-by-side editing and preview
+- Code formatting support for Markdown, JSON, YAML, XML, SQL, JavaScript, TypeScript, CSS, and HTML
+- Preferences panel with customizable settings:
+  - Auto-reload on external file changes
+  - Auto-save functionality
+  - Theme selection (Light/Dark/System)
+  - Editor options (column ruler, line highlighting, status bar)
+  - Formatting options (indentation, line length, etc.)
+- Tab-based file management with context menu
+- Folder browser panel
+- File search with regex support
+- Find and replace in edit mode
+- Navigation history (back/forward)
+- Keyboard shortcuts throughout
+- Status bar showing file info, cursor position, and encoding
+- Mac App Store provisioning configuration
+- Welcome screen with Open File and Open Folder buttons

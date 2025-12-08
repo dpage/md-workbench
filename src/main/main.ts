@@ -50,7 +50,7 @@ protocol.registerSchemesAsPrivileged([
 app.name = 'Markdown Workbench';
 
 // App info
-const APP_VERSION = '1.0.0-alpha.1';
+const APP_VERSION = '1.0.0-alpha.2';
 const APP_COPYRIGHT = 'Copyright \u00A9 2025 Dave Page';
 
 // Types for stored data
