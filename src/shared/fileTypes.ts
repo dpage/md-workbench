@@ -165,6 +165,24 @@ export function getHighlightLanguage(filePath: string): string {
 }
 
 /**
+ * Labels for file types (used in status bar)
+ */
+export const FILE_TYPE_LABELS: Record<FileType, string> = {
+  markdown: 'Markdown',
+  json: 'JSON',
+  yaml: 'YAML',
+  xml: 'XML',
+  javascript: 'JavaScript',
+  typescript: 'TypeScript',
+  css: 'CSS',
+  html: 'HTML',
+  python: 'Python',
+  sql: 'SQL',
+  shell: 'Shell',
+  plaintext: 'Plain Text',
+};
+
+/**
  * List of supported file extensions for the open dialog
  */
 export const SUPPORTED_EXTENSIONS = [

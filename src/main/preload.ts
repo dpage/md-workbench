@@ -49,6 +49,7 @@ export interface FolderData {
 
 export type Theme = 'light' | 'dark';
 export type ThemeSetting = 'light' | 'dark' | 'system';
+export type MarkdownViewMode = 'preview' | 'edit' | 'split';
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
@@ -136,6 +137,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       folderPath: string;
       folderName: string;
     } | null>,
+
+  // File view mode storage
+  getFileViewMode: (filePath: string) =>
+    ipcRenderer.invoke('get-file-view-mode', filePath) as Promise<MarkdownViewMode | null>,
+  setFileViewMode: (filePath: string, mode: MarkdownViewMode) =>
+    ipcRenderer.invoke('set-file-view-mode', filePath, mode),
 
   // Event listeners
   onFileOpened: (callback: (data: FileData) => void) => {
@@ -265,5 +272,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = () => callback();
     ipcRenderer.on('format-document', listener);
     return () => ipcRenderer.removeListener('format-document', listener);
+  },
+
+  onSetViewMode: (callback: (mode: MarkdownViewMode) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, mode: MarkdownViewMode) => {
+      callback(mode);
+    };
+    ipcRenderer.on('set-view-mode', listener);
+    return () => ipcRenderer.removeListener('set-view-mode', listener);
   },
 });

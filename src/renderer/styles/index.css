@@ -1267,22 +1267,50 @@ body {
   background: var(--scrollbar-track);
 }
 
-/* Toolbar edit button */
-.toolbar-button-edit {
+/* Toolbar view mode group */
+.toolbar-view-mode-group {
+  display: flex;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  margin-left: 4px;
+}
+
+.toolbar-view-mode-group .toolbar-button {
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.toolbar-view-mode-group .toolbar-button span {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Toolbar view mode buttons */
+.toolbar-button-preview,
+.toolbar-button-edit,
+.toolbar-button-split {
   padding: 6px 12px;
 }
 
-.toolbar-button-edit span {
+.toolbar-button-preview span,
+.toolbar-button-edit span,
+.toolbar-button-split span {
   font-size: 13px;
   font-weight: 500;
 }
 
-.toolbar-button-edit.active {
+.toolbar-button-preview.active,
+.toolbar-button-edit.active,
+.toolbar-button-split.active {
   background-color: var(--accent-bg);
   color: var(--accent-primary);
 }
 
-.toolbar-button-edit.active:hover {
+.toolbar-button-preview.active:hover,
+.toolbar-button-edit.active:hover,
+.toolbar-button-split.active:hover {
   background-color: var(--accent-bg);
 }
 

@@ -8,6 +8,7 @@
 //
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { MarkdownViewMode } from '../../shared/preferences';
 
 export interface Tab {
   id: string;
@@ -15,8 +16,7 @@ export interface Tab {
   fileName: string;
   content: string;
   originalContent?: string;
-  viewSource?: boolean;
-  editMode?: boolean;
+  viewMode?: MarkdownViewMode;
   isDirty?: boolean;
   fileType?: string;
   highlightLanguage?: string;

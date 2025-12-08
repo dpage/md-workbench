@@ -8,6 +8,7 @@
 //
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { MarkdownViewMode } from '../../shared/preferences';
 
 interface ToolbarProps {
   onOpenFile: () => void;
@@ -17,13 +18,11 @@ interface ToolbarProps {
   onForward: () => void;
   canGoBack: boolean;
   canGoForward: boolean;
-  viewSource: boolean;
-  onToggleViewSource: () => void;
-  editMode: boolean;
-  onToggleEditMode: () => void;
+  viewMode: MarkdownViewMode;
+  onSetViewMode: (mode: MarkdownViewMode) => void;
   hasActiveTab: boolean;
   isDirty?: boolean;
-  supportsRenderedView?: boolean;
+  isMarkdownFile?: boolean;
   onCut?: () => void;
   onCopy?: () => void;
   onPaste?: () => void;
@@ -40,13 +39,11 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onForward,
   canGoBack,
   canGoForward,
-  viewSource,
-  onToggleViewSource,
-  editMode,
-  onToggleEditMode,
+  viewMode,
+  onSetViewMode,
   hasActiveTab,
   isDirty = false,
-  supportsRenderedView = true,
+  isMarkdownFile = false,
   onCut,
   onCopy,
   onPaste,
@@ -134,7 +131,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         {hasActiveTab && (
           <>
             <div className="toolbar-separator" />
-            {editMode && (
+            {(viewMode === 'edit' || viewMode === 'split') && (
               <button
                 className="toolbar-button toolbar-button-icon"
                 onClick={onCut}
@@ -206,7 +203,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                 </svg>
               )}
             </button>
-            {editMode && (
+            {(viewMode === 'edit' || viewMode === 'split') && (
               <button
                 className="toolbar-button toolbar-button-icon"
                 onClick={onPaste}
@@ -260,7 +257,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                 />
               </svg>
             </button>
-            {editMode && (
+            {(viewMode === 'edit' || viewMode === 'split') && (
               <button
                 className="toolbar-button toolbar-button-icon"
                 onClick={onFindReplace}
@@ -399,73 +396,99 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </svg>
           <span>Save As</span>
         </button>
-        {supportsRenderedView && (
-          <button
-            className={`toolbar-button toolbar-button-source ${viewSource ? 'active' : ''}`}
-            onClick={onToggleViewSource}
-            disabled={!hasActiveTab}
-            title={viewSource ? 'View Rendered' : 'View Source'}
-            aria-label={viewSource ? 'View Rendered' : 'View Source'}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
+        {isMarkdownFile && (
+          <div className="toolbar-view-mode-group">
+            <button
+              className={`toolbar-button toolbar-button-preview ${viewMode === 'preview' ? 'active' : ''}`}
+              onClick={() => onSetViewMode('preview')}
+              disabled={!hasActiveTab}
+              title="Preview Mode"
+              aria-label="Preview Mode"
             >
-              <path
-                d="M5.5 4L2 8L5.5 12"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M10.5 4L14 8L10.5 12"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span>Source</span>
-          </button>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M8 3C4 3 1.5 8 1.5 8C1.5 8 4 13 8 13C12 13 14.5 8 14.5 8C14.5 8 12 3 8 3Z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx="8" cy="8" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
+              <span>Preview</span>
+            </button>
+            <button
+              className={`toolbar-button toolbar-button-edit ${viewMode === 'edit' ? 'active' : ''}`}
+              onClick={() => onSetViewMode('edit')}
+              disabled={!hasActiveTab}
+              title="Edit Mode"
+              aria-label="Edit Mode"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M11.5 2.5L13.5 4.5L5 13H3V11L11.5 2.5Z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M10 4L12 6"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span>Edit</span>
+            </button>
+            <button
+              className={`toolbar-button toolbar-button-split ${viewMode === 'split' ? 'active' : ''}`}
+              onClick={() => onSetViewMode('split')}
+              disabled={!hasActiveTab}
+              title="Split Mode (Edit + Preview)"
+              aria-label="Split Mode"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect
+                  x="2"
+                  y="2"
+                  width="12"
+                  height="12"
+                  rx="1"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
+                <line
+                  x1="8"
+                  y1="2"
+                  x2="8"
+                  y2="14"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                />
+              </svg>
+              <span>Split</span>
+            </button>
+          </div>
         )}
-        <button
-          className={`toolbar-button toolbar-button-edit ${editMode ? 'active' : ''}`}
-          onClick={onToggleEditMode}
-          disabled={!hasActiveTab}
-          title={editMode ? 'Exit Split View' : 'Split View'}
-          aria-label={editMode ? 'Exit Split View' : 'Split View'}
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <rect
-              x="2"
-              y="2"
-              width="12"
-              height="12"
-              rx="1"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            />
-            <line
-              x1="8"
-              y1="2"
-              x2="8"
-              y2="14"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            />
-          </svg>
-          <span>Edit</span>
-        </button>
         <div className="toolbar-separator" />
         <button
           className="toolbar-button toolbar-button-help"

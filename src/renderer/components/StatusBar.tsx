@@ -8,8 +8,7 @@
 //
 
 import React from 'react';
-import { FileType } from '../../shared/fileTypes';
-import { FILE_TYPE_LABELS } from '../../shared/preferences';
+import { FileType, FILE_TYPE_LABELS } from '../../shared/fileTypes';
 
 interface StatusBarProps {
   filePath: string;
@@ -34,15 +33,9 @@ const StatusBar: React.FC<StatusBarProps> = ({
   encoding = 'UTF-8',
   lineEnding = 'LF',
 }) => {
-  // Get display name for file type (just the type name, not the full label with extensions)
+  // Get display name for file type
   const getFileTypeDisplayName = (type: string): string => {
-    const label = FILE_TYPE_LABELS[type as FileType];
-    if (label) {
-      // Extract just the type name before the extensions in parentheses
-      const match = label.match(/^([^(]+)/);
-      return match ? match[1].trim() : type;
-    }
-    return type;
+    return FILE_TYPE_LABELS[type as FileType] || type;
   };
 
   const fileTypeDisplay = fileType ? getFileTypeDisplayName(fileType) : 'Plain Text';

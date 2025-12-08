@@ -23,12 +23,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { pathToFileURL } from 'url';
 import Store from 'electron-store';
-import { getFileTypeInfo, SUPPORTED_EXTENSIONS, FileType } from '../shared/fileTypes';
+import { getFileTypeInfo, SUPPORTED_EXTENSIONS } from '../shared/fileTypes';
 import {
   Preferences,
   ThemeSetting,
+  MarkdownViewMode,
   DEFAULT_PREFERENCES,
-  DEFAULT_FILE_TYPE_DEFAULTS,
+  DEFAULT_MARKDOWN_OPTIONS,
   DEFAULT_FORMATTING_OPTIONS,
   DEFAULT_EDITOR_OPTIONS,
 } from '../shared/preferences';
@@ -81,6 +82,7 @@ interface StoreSchema {
   recentFiles: string[];
   recentFolders: string[];
   currentFolder: string | null;
+  fileViewModes: Record<string, MarkdownViewMode>;
 }
 
 const MAX_RECENT_FILES = 10;
@@ -100,6 +102,7 @@ const store = new Store<StoreSchema>({
     recentFiles: [],
     recentFolders: [],
     currentFolder: null,
+    fileViewModes: {},
   },
 });
 
@@ -113,9 +116,9 @@ function getPreferencesWithDefaults(): Preferences {
     ...DEFAULT_PREFERENCES,
     ...stored,
     theme: actualTheme, // Override with actual theme to keep in sync
-    fileTypeDefaults: {
-      ...DEFAULT_FILE_TYPE_DEFAULTS,
-      ...(stored.fileTypeDefaults || {}),
+    markdown: {
+      ...DEFAULT_MARKDOWN_OPTIONS,
+      ...(stored.markdown || {}),
     },
     formatting: {
       ...DEFAULT_FORMATTING_OPTIONS,
@@ -624,6 +627,28 @@ function createMenu(): void {
     {
       label: 'View',
       submenu: [
+        {
+          label: 'Preview Mode',
+          accelerator: 'CmdOrCtrl+1',
+          click: () => {
+            mainWindow?.webContents.send('set-view-mode', 'preview');
+          },
+        },
+        {
+          label: 'Edit Mode',
+          accelerator: 'CmdOrCtrl+2',
+          click: () => {
+            mainWindow?.webContents.send('set-view-mode', 'edit');
+          },
+        },
+        {
+          label: 'Split Mode',
+          accelerator: 'CmdOrCtrl+3',
+          click: () => {
+            mainWindow?.webContents.send('set-view-mode', 'split');
+          },
+        },
+        { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
         { role: 'toggleDevTools' },
@@ -1112,6 +1137,18 @@ ipcMain.handle('get-current-folder', () => {
     folderPath: currentFolder,
     folderName: path.basename(currentFolder),
   };
+});
+
+// File view mode storage
+ipcMain.handle('get-file-view-mode', (_, filePath: string) => {
+  const fileViewModes = store.get('fileViewModes') || {};
+  return fileViewModes[filePath] || null;
+});
+
+ipcMain.handle('set-file-view-mode', (_, filePath: string, mode: MarkdownViewMode) => {
+  const fileViewModes = store.get('fileViewModes') || {};
+  fileViewModes[filePath] = mode;
+  store.set('fileViewModes', fileViewModes);
 });
 
 // Listen for OS theme changes

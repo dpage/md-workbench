@@ -11,9 +11,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   Preferences,
   ThemeSetting,
-  DefaultOpenMode,
-  FileTypeDefaults,
-  FILE_TYPE_LABELS,
+  MarkdownViewMode,
+  MarkdownOptions,
   DEFAULT_PREFERENCES,
   FormattingOptions,
   SqlDialect,
@@ -21,8 +20,8 @@ import {
   DEFAULT_FORMATTING_OPTIONS,
   EditorOptions,
   DEFAULT_EDITOR_OPTIONS,
+  DEFAULT_MARKDOWN_OPTIONS,
 } from '../../shared/preferences';
-import { FileType } from '../../shared/fileTypes';
 
 interface PreferencesPanelProps {
   isOpen: boolean;
@@ -31,7 +30,7 @@ interface PreferencesPanelProps {
   onPreferencesChange: (preferences: Preferences) => void;
 }
 
-type TabId = 'general' | 'appearance' | 'editor' | 'fileTypes' | 'formatting';
+type TabId = 'general' | 'appearance' | 'editor' | 'markdown' | 'formatting';
 
 const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
   isOpen,
@@ -70,13 +69,13 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
     [localPreferences, onPreferencesChange]
   );
 
-  const handleFileTypeDefaultChange = useCallback(
-    (fileType: FileType, mode: DefaultOpenMode) => {
+  const handleMarkdownChange = useCallback(
+    <K extends keyof MarkdownOptions>(key: K, value: MarkdownOptions[K]) => {
       const updated: Preferences = {
         ...localPreferences,
-        fileTypeDefaults: {
-          ...localPreferences.fileTypeDefaults,
-          [fileType]: mode,
+        markdown: {
+          ...(localPreferences.markdown || DEFAULT_MARKDOWN_OPTIONS),
+          [key]: value,
         },
       };
       setLocalPreferences(updated);
@@ -135,21 +134,6 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
 
   if (!isOpen) return null;
 
-  const fileTypes: FileType[] = [
-    'markdown',
-    'json',
-    'yaml',
-    'xml',
-    'javascript',
-    'typescript',
-    'css',
-    'html',
-    'python',
-    'sql',
-    'shell',
-    'plaintext',
-  ];
-
   return (
     <div
       className="preferences-overlay"
@@ -202,10 +186,10 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
             Editor
           </button>
           <button
-            className={`preferences-tab ${activeTab === 'fileTypes' ? 'active' : ''}`}
-            onClick={() => setActiveTab('fileTypes')}
+            className={`preferences-tab ${activeTab === 'markdown' ? 'active' : ''}`}
+            onClick={() => setActiveTab('markdown')}
           >
-            File Types
+            Markdown
           </button>
           <button
             className={`preferences-tab ${activeTab === 'formatting' ? 'active' : ''}`}
@@ -352,39 +336,60 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
             </div>
           )}
 
-          {activeTab === 'fileTypes' && (
+          {activeTab === 'markdown' && (
             <div className="preferences-section">
               <p className="preferences-section-description">
-                Choose the default mode when opening each file type.
+                Configure how Markdown files are displayed.
               </p>
-              <div className="preferences-file-types">
-                {fileTypes.map((fileType) => (
-                  <div key={fileType} className="preferences-file-type-row">
-                    <span className="preferences-file-type-label">
-                      {FILE_TYPE_LABELS[fileType]}
-                    </span>
-                    <div className="preferences-file-type-options">
-                      <label className="preferences-radio-label">
-                        <input
-                          type="radio"
-                          name={`fileType-${fileType}`}
-                          checked={localPreferences.fileTypeDefaults[fileType] === 'view'}
-                          onChange={() => handleFileTypeDefaultChange(fileType, 'view')}
-                        />
-                        <span>View</span>
-                      </label>
-                      <label className="preferences-radio-label">
-                        <input
-                          type="radio"
-                          name={`fileType-${fileType}`}
-                          checked={localPreferences.fileTypeDefaults[fileType] === 'edit'}
-                          onChange={() => handleFileTypeDefaultChange(fileType, 'edit')}
-                        />
-                        <span>Edit</span>
-                      </label>
-                    </div>
-                  </div>
-                ))}
+
+              <div className="preferences-group">
+                <label className="preferences-label">Default View Mode</label>
+                <div className="preferences-radio-group">
+                  <label className="preferences-radio-label">
+                    <input
+                      type="radio"
+                      name="defaultViewMode"
+                      checked={(localPreferences.markdown?.defaultViewMode ?? 'preview') === 'preview'}
+                      onChange={() => handleMarkdownChange('defaultViewMode', 'preview')}
+                    />
+                    <span>Preview</span>
+                  </label>
+                  <label className="preferences-radio-label">
+                    <input
+                      type="radio"
+                      name="defaultViewMode"
+                      checked={(localPreferences.markdown?.defaultViewMode ?? 'preview') === 'edit'}
+                      onChange={() => handleMarkdownChange('defaultViewMode', 'edit')}
+                    />
+                    <span>Edit</span>
+                  </label>
+                  <label className="preferences-radio-label">
+                    <input
+                      type="radio"
+                      name="defaultViewMode"
+                      checked={(localPreferences.markdown?.defaultViewMode ?? 'preview') === 'split'}
+                      onChange={() => handleMarkdownChange('defaultViewMode', 'split')}
+                    />
+                    <span>Split (Edit + Preview)</span>
+                  </label>
+                </div>
+                <p className="preferences-description">
+                  Choose the default view mode when opening Markdown files.
+                </p>
+              </div>
+
+              <div className="preferences-group">
+                <label className="preferences-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={localPreferences.markdown?.rememberViewModes ?? true}
+                    onChange={(e) => handleMarkdownChange('rememberViewModes', e.target.checked)}
+                  />
+                  <span>Remember view mode per file</span>
+                </label>
+                <p className="preferences-description">
+                  Remember the view mode for each file and restore it when the file is reopened.
+                </p>
               </div>
             </div>
           )}

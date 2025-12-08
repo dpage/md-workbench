@@ -19,7 +19,7 @@ import HelpPanel from './components/HelpPanel';
 import FolderPanel from './components/FolderPanel';
 import PreferencesPanel from './components/PreferencesPanel';
 import StatusBar from './components/StatusBar';
-import { Preferences, DEFAULT_PREFERENCES } from '../shared/preferences';
+import { Preferences, DEFAULT_PREFERENCES, MarkdownViewMode, DEFAULT_MARKDOWN_OPTIONS } from '../shared/preferences';
 import { FileType } from '../shared/fileTypes';
 import { formatDocument, canFormatDocument } from './utils/formatters';
 
@@ -133,6 +133,10 @@ declare global {
       ) => () => void;
       onShowPreferences: (callback: () => void) => () => void;
       onFormatDocument: (callback: () => void) => () => void;
+      onSetViewMode: (callback: (mode: MarkdownViewMode) => void) => () => void;
+      // Per-file view mode storage
+      getFileViewMode: (filePath: string) => Promise<MarkdownViewMode | null>;
+      setFileViewMode: (filePath: string, mode: MarkdownViewMode) => Promise<void>;
     };
   }
 }
@@ -224,16 +228,23 @@ const App: React.FC = () => {
     window.electronAPI?.openFolderDialog();
   }, []);
 
-  const handleFileOpened = useCallback((data: FileData) => {
+  const handleFileOpened = useCallback(async (data: FileData) => {
     const currentTabs = tabsRef.current;
     const existingTab = currentTabs.find(
       (tab) => tab.filePath === data.filePath
     );
 
-    // Determine default open mode based on file type preferences
-    const fileType = (data.fileType || 'plaintext') as FileType;
-    const defaultMode = preferencesRef.current.fileTypeDefaults?.[fileType] ?? 'view';
-    const shouldOpenInEditMode = defaultMode === 'edit';
+    // Determine default view mode for markdown files
+    const isMarkdown = data.fileType === 'markdown';
+    let viewMode: MarkdownViewMode = preferencesRef.current.markdown?.defaultViewMode ?? 'preview';
+
+    // Check for remembered view mode if preference is enabled
+    if (isMarkdown && preferencesRef.current.markdown?.rememberViewModes) {
+      const savedMode = await window.electronAPI?.getFileViewMode(data.filePath);
+      if (savedMode) {
+        viewMode = savedMode;
+      }
+    }
 
     if (existingTab) {
       // File already open - just switch to it
@@ -278,8 +289,7 @@ const App: React.FC = () => {
                 highlightLanguage: data.highlightLanguage,
                 supportsRenderedView: data.supportsRenderedView ?? true,
                 supportsFormatting: data.supportsFormatting ?? true,
-                editMode: shouldOpenInEditMode,
-                viewSource: false,
+                viewMode: isMarkdown ? viewMode : undefined,
               }
             : tab
         )
@@ -295,7 +305,7 @@ const App: React.FC = () => {
         highlightLanguage: data.highlightLanguage,
         supportsRenderedView: data.supportsRenderedView ?? true,
         supportsFormatting: data.supportsFormatting ?? true,
-        editMode: shouldOpenInEditMode,
+        viewMode: isMarkdown ? viewMode : undefined,
       };
       setTabs((prev) => [...prev, newTab]);
       setActiveTabId(newTab.id);
@@ -417,36 +427,31 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleToggleViewSource = useCallback(() => {
+  const handleSetViewMode = useCallback((mode: MarkdownViewMode) => {
     const currentTabId = activeTabIdRef.current;
     if (!currentTabId) return;
 
-    setTabs((prev) =>
-      prev.map((tab) =>
-        tab.id === currentTabId
-          ? { ...tab, viewSource: !tab.viewSource, editMode: false }
-          : tab
-      )
-    );
-  }, []);
-
-  const handleToggleEditMode = useCallback(() => {
-    const currentTabId = activeTabIdRef.current;
-    if (!currentTabId) return;
+    const currentTab = tabsRef.current.find((tab) => tab.id === currentTabId);
+    if (!currentTab) return;
 
     setTabs((prev) =>
       prev.map((tab) => {
         if (tab.id === currentTabId) {
-          // When entering edit mode, store original content if not already stored
+          // When entering edit or split mode, store original content if not already stored
           const originalContent =
             tab.originalContent !== undefined
               ? tab.originalContent
               : tab.content;
-          return { ...tab, editMode: !tab.editMode, viewSource: false, originalContent };
+          return { ...tab, viewMode: mode, originalContent };
         }
         return tab;
       })
     );
+
+    // Save per-file view mode if preference is enabled
+    if (preferencesRef.current.markdown?.rememberViewModes && currentTab.fileType === 'markdown') {
+      window.electronAPI?.setFileViewMode(currentTab.filePath, mode);
+    }
   }, []);
 
   // Handle content changes from editor
@@ -594,7 +599,8 @@ const App: React.FC = () => {
     if (!currentTabId) return;
 
     const currentTab = tabsRef.current.find((tab) => tab.id === currentTabId);
-    if (!currentTab || !currentTab.editMode) return;
+    const isInEditMode = currentTab?.viewMode === 'edit' || currentTab?.viewMode === 'split';
+    if (!currentTab || !isInEditMode) return;
 
     const fileType = (currentTab.fileType || 'plaintext') as FileType;
     if (!canFormatDocument(fileType)) return;
@@ -671,7 +677,8 @@ const App: React.FC = () => {
     const currentTab = tabsRef.current.find(
       (tab) => tab.id === activeTabIdRef.current
     );
-    if (currentTab?.editMode) {
+    const isInEditMode = currentTab?.viewMode === 'edit' || currentTab?.viewMode === 'split';
+    if (isInEditMode) {
       setShowSearch(true);
       setShowReplace(true);
     }
@@ -1075,6 +1082,8 @@ const App: React.FC = () => {
       window.electronAPI?.onShowPreferences(handleShowPreferences);
     const unsubscribeFormatDocument =
       window.electronAPI?.onFormatDocument(handleFormat);
+    const unsubscribeSetViewMode =
+      window.electronAPI?.onSetViewMode(handleSetViewMode);
 
     return () => {
       unsubscribeFileOpened?.();
@@ -1091,6 +1100,7 @@ const App: React.FC = () => {
       unsubscribeFolderClosed?.();
       unsubscribeShowPreferences?.();
       unsubscribeFormatDocument?.();
+      unsubscribeSetViewMode?.();
     };
   }, [
     handleFileOpened,
@@ -1107,19 +1117,21 @@ const App: React.FC = () => {
     handleFolderClosed,
     handleShowPreferences,
     handleFormat,
+    handleSetViewMode,
   ]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
   // Search highlight options for view mode MarkdownViewer
   const viewSearchHighlight: SearchHighlightOptions | undefined = useMemo(() => {
-    if (!viewSearchQuery || !showSearch || activeTab?.editMode) return undefined;
+    const isInEditMode = activeTab?.viewMode === 'edit' || activeTab?.viewMode === 'split';
+    if (!viewSearchQuery || !showSearch || isInEditMode) return undefined;
     return {
       query: viewSearchQuery,
       caseSensitive: viewSearchOptions.caseSensitive,
       useRegex: viewSearchOptions.useRegex,
     };
-  }, [viewSearchQuery, viewSearchOptions, showSearch, activeTab?.editMode]);
+  }, [viewSearchQuery, viewSearchOptions, showSearch, activeTab?.viewMode]);
 
   // Compute navigation state for current tab
   const currentHistory = activeTabId
@@ -1140,13 +1152,11 @@ const App: React.FC = () => {
         onForward={handleForward}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
-        viewSource={activeTab?.viewSource ?? false}
-        onToggleViewSource={handleToggleViewSource}
-        editMode={activeTab?.editMode ?? false}
-        onToggleEditMode={handleToggleEditMode}
+        viewMode={activeTab?.viewMode ?? 'preview'}
+        onSetViewMode={handleSetViewMode}
         hasActiveTab={!!activeTab}
         isDirty={activeTab?.isDirty ?? false}
-        supportsRenderedView={activeTab?.supportsRenderedView ?? true}
+        isMarkdownFile={activeTab?.fileType === 'markdown'}
         onCut={handleCut}
         onCopy={handleCopy}
         onPaste={handlePaste}
@@ -1177,88 +1187,96 @@ const App: React.FC = () => {
         )}
         <div className="app-content">
           {activeTab ? (
-            activeTab.viewSource ? (
-              <div className="view-mode-container">
-                {showSearch && (
-                  <SearchBar
-                    onClose={handleCloseSearch}
-                    onSearch={handleViewSearch}
-                    onReplace={handleViewReplace}
-                    onReplaceAll={handleViewReplaceAll}
-                    onNavigate={handleViewNavigate}
-                    matchCount={viewMatchCount}
-                    currentMatch={viewCurrentMatch}
-                    showReplace={false}
-                    allowReplace={false}
-                    initialQuery={viewSearchQuery}
-                    initialOptions={viewSearchOptions}
-                  />
-                )}
-                <SourceViewer
-                  content={activeTab.content}
-                  searchQuery={showSearch ? viewSearchQuery : ''}
-                  searchOptions={viewSearchOptions}
-                  initialMatchIndex={viewCurrentMatch - 1}
-                  onMatchChange={handleCurrentMatchChange}
-                  highlightLanguage={activeTab.highlightLanguage}
-                />
-              </div>
-            ) : activeTab.editMode ? (
-              <SplitEditor
-                key={`split-${activeTab.id}`}
-                content={activeTab.content}
-                fileName={activeTab.fileName}
-                filePath={activeTab.filePath}
-                onContentChange={handleContentChange}
-                showSearch={showSearch}
-                showReplace={showReplace}
-                onCloseSearch={handleCloseSearch}
-                initialSearchQuery={viewSearchQuery}
-                initialSearchOptions={viewSearchOptions}
-                initialMatchIndex={viewCurrentMatch - 1}
-                onSearchStateChange={handleSearchStateChange}
-                onCurrentMatchChange={handleCurrentMatchChange}
-                onCursorPositionChange={handleCursorPositionChange}
-                supportsFormatting={activeTab.supportsFormatting ?? true}
-                supportsRenderedView={activeTab.supportsRenderedView ?? true}
-                highlightLanguage={activeTab.highlightLanguage}
-                autoSave={preferences.autoSave}
-                onAutoSave={handleSave}
-                onFormat={handleFormat}
-                formatOnSave={preferences.formatting?.formatOnSave ?? false}
-                showColumnRuler={preferences.editor?.showColumnRuler ?? true}
-                showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
-                maxLineLength={preferences.formatting?.maxLineLength ?? 79}
-              />
-            ) : activeTab.supportsRenderedView !== false ? (
-              <div className="view-mode-container">
-                {showSearch && (
-                  <SearchBar
-                    onClose={handleCloseSearch}
-                    onSearch={handleViewSearch}
-                    onReplace={handleViewReplace}
-                    onReplaceAll={handleViewReplaceAll}
-                    onNavigate={handleViewNavigate}
-                    matchCount={viewMatchCount}
-                    currentMatch={viewCurrentMatch}
-                    showReplace={false}
-                    allowReplace={false}
-                    initialQuery={viewSearchQuery}
-                    initialOptions={viewSearchOptions}
-                  />
-                )}
-                <MarkdownViewer
-                  key={activeTab.id}
+            activeTab.fileType === 'markdown' ? (
+              // Markdown file - use view mode
+              activeTab.viewMode === 'edit' ? (
+                // Edit mode - editor only (no preview)
+                <SplitEditor
+                  key={`edit-${activeTab.id}`}
                   content={activeTab.content}
                   fileName={activeTab.fileName}
                   filePath={activeTab.filePath}
-                  initialScrollPosition={scrollPositionsRef.current.get(activeTab.id)}
-                  onScrollChange={handleScrollChange}
-                  searchHighlight={viewSearchHighlight}
-                  currentMatchIndex={viewCurrentMatch - 1}
+                  onContentChange={handleContentChange}
+                  showSearch={showSearch}
+                  showReplace={showReplace}
+                  onCloseSearch={handleCloseSearch}
+                  initialSearchQuery={viewSearchQuery}
+                  initialSearchOptions={viewSearchOptions}
+                  initialMatchIndex={viewCurrentMatch - 1}
+                  onSearchStateChange={handleSearchStateChange}
+                  onCurrentMatchChange={handleCurrentMatchChange}
+                  onCursorPositionChange={handleCursorPositionChange}
+                  supportsFormatting={activeTab.supportsFormatting ?? true}
+                  supportsRenderedView={false}
+                  highlightLanguage={activeTab.highlightLanguage}
+                  autoSave={preferences.autoSave}
+                  onAutoSave={handleSave}
+                  onFormat={handleFormat}
+                  formatOnSave={preferences.formatting?.formatOnSave ?? false}
+                  showColumnRuler={preferences.editor?.showColumnRuler ?? true}
+                  showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
+                  maxLineLength={preferences.formatting?.maxLineLength ?? 79}
                 />
-              </div>
+              ) : activeTab.viewMode === 'split' ? (
+                // Split mode - editor + preview
+                <SplitEditor
+                  key={`split-${activeTab.id}`}
+                  content={activeTab.content}
+                  fileName={activeTab.fileName}
+                  filePath={activeTab.filePath}
+                  onContentChange={handleContentChange}
+                  showSearch={showSearch}
+                  showReplace={showReplace}
+                  onCloseSearch={handleCloseSearch}
+                  initialSearchQuery={viewSearchQuery}
+                  initialSearchOptions={viewSearchOptions}
+                  initialMatchIndex={viewCurrentMatch - 1}
+                  onSearchStateChange={handleSearchStateChange}
+                  onCurrentMatchChange={handleCurrentMatchChange}
+                  onCursorPositionChange={handleCursorPositionChange}
+                  supportsFormatting={activeTab.supportsFormatting ?? true}
+                  supportsRenderedView={true}
+                  highlightLanguage={activeTab.highlightLanguage}
+                  autoSave={preferences.autoSave}
+                  onAutoSave={handleSave}
+                  onFormat={handleFormat}
+                  formatOnSave={preferences.formatting?.formatOnSave ?? false}
+                  showColumnRuler={preferences.editor?.showColumnRuler ?? true}
+                  showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
+                  maxLineLength={preferences.formatting?.maxLineLength ?? 79}
+                />
+              ) : (
+                // Preview mode (default)
+                <div className="view-mode-container">
+                  {showSearch && (
+                    <SearchBar
+                      onClose={handleCloseSearch}
+                      onSearch={handleViewSearch}
+                      onReplace={handleViewReplace}
+                      onReplaceAll={handleViewReplaceAll}
+                      onNavigate={handleViewNavigate}
+                      matchCount={viewMatchCount}
+                      currentMatch={viewCurrentMatch}
+                      showReplace={false}
+                      allowReplace={false}
+                      initialQuery={viewSearchQuery}
+                      initialOptions={viewSearchOptions}
+                    />
+                  )}
+                  <MarkdownViewer
+                    key={activeTab.id}
+                    content={activeTab.content}
+                    fileName={activeTab.fileName}
+                    filePath={activeTab.filePath}
+                    initialScrollPosition={scrollPositionsRef.current.get(activeTab.id)}
+                    onScrollChange={handleScrollChange}
+                    searchHighlight={viewSearchHighlight}
+                    currentMatchIndex={viewCurrentMatch - 1}
+                  />
+                </div>
+              )
             ) : (
+              // Non-markdown file - show source viewer (read-only)
               <div className="view-mode-container">
                 {showSearch && (
                   <SearchBar
@@ -1294,10 +1312,10 @@ const App: React.FC = () => {
         <StatusBar
           filePath={activeTab.filePath}
           fileType={activeTab.fileType}
-          cursorLine={activeTab.editMode ? cursorPosition.line : undefined}
-          cursorColumn={activeTab.editMode ? cursorPosition.column : undefined}
+          cursorLine={(activeTab.viewMode === 'edit' || activeTab.viewMode === 'split') ? cursorPosition.line : undefined}
+          cursorColumn={(activeTab.viewMode === 'edit' || activeTab.viewMode === 'split') ? cursorPosition.column : undefined}
           totalLines={activeTab.content.split('\n').length}
-          editMode={activeTab.editMode ?? false}
+          editMode={(activeTab.viewMode === 'edit' || activeTab.viewMode === 'split')}
           isDirty={activeTab.isDirty}
           lineEnding={activeTab.content.includes('\r\n') ? 'CRLF' : 'LF'}
         />
