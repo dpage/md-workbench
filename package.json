@@ -1,6 +1,6 @@
 {
   "name": "md-workbench",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "Markdown Workbench - A cross-platform markdown viewer",
   "main": "dist/main/main.js",
   "scripts": {

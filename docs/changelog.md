@@ -2,6 +2,22 @@
 
 All notable changes to Markdown Workbench will be documented in this file.
 
+## [1.0.0-alpha.3] - 2025-12-09
+
+### Changed
+- **New color scheme**: Replaced amber accents with a terminal-inspired muted green (#5f9e72) for a distinctive, eye-friendly aesthetic
+- **Welcome screen redesign**: Editorial design with warm, professional styling
+- **Improved split divider**: Larger 16px hit area for easier grabbing, with subtle glow effect on hover
+- **Toolbar visual hierarchy**: Grouped related buttons with recessed background wells for clearer organization
+- **Dark mode contrast**: Improved visibility of toolbar groups and UI element separation
+
+### Added
+- **Line numbers gutter**: Optional line numbers display in the editor with current line highlighting (configurable in Preferences → Editor)
+- **Folder panel resize**: Drag the panel edge to resize between 150-500px
+- **Tab file type indicators**: Colored dots on tabs indicating file type (Markdown, JSON, YAML, etc.)
+- **Status bar interactions**: Click cursor position or line count to go to line, click encoding/EOL to change settings
+- Build script now cleans release directory before packaging for improved reliability
+
 ## [1.0.0-alpha.2] - 2025-12-08
 
 ### Changed
