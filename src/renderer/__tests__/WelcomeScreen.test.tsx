@@ -3,14 +3,15 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import WelcomeScreen from '../components/WelcomeScreen';
 
 describe('WelcomeScreen Component', () => {
-  it('renders the title', () => {
+  it('renders the title parts', () => {
     render(<WelcomeScreen onOpenFile={jest.fn()} onOpenFolder={jest.fn()} />);
-    expect(screen.getByText('Markdown Workbench')).toBeInTheDocument();
+    expect(screen.getByText('Markdown')).toBeInTheDocument();
+    expect(screen.getByText('Workbench')).toBeInTheDocument();
   });
 
-  it('renders the description', () => {
+  it('renders the tagline', () => {
     render(<WelcomeScreen onOpenFile={jest.fn()} onOpenFolder={jest.fn()} />);
-    expect(screen.getByText('View and edit Markdown, code, and configuration files')).toBeInTheDocument();
+    expect(screen.getByText('A thoughtful editor for your documents')).toBeInTheDocument();
   });
 
   it('renders the open file button', () => {
@@ -37,9 +38,9 @@ describe('WelcomeScreen Component', () => {
     expect(onOpenFolder).toHaveBeenCalled();
   });
 
-  it('displays keyboard shortcut hints', () => {
+  it('displays keyboard shortcut hint', () => {
     render(<WelcomeScreen onOpenFile={jest.fn()} onOpenFolder={jest.fn()} />);
-    expect(screen.getByText(/Ctrl/)).toBeInTheDocument();
-    expect(screen.getByText(/Cmd/)).toBeInTheDocument();
+    expect(screen.getByText('O')).toBeInTheDocument();
+    expect(screen.getByText(/to open a file/)).toBeInTheDocument();
   });
 });
