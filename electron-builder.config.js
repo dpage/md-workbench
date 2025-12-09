@@ -30,17 +30,43 @@ const config = {
   extraMetadata: {
     main: "dist/main/main.js"
   },
+  fileAssociations: [
+    {
+      ext: ["md", "markdown", "mdown", "mkd"],
+      name: "Markdown Document",
+      role: "Editor",
+      icon: "assets/icons/icon"
+    },
+    {
+      ext: "json",
+      name: "JSON Document",
+      role: "Editor"
+    },
+    {
+      ext: ["yaml", "yml"],
+      name: "YAML Document",
+      role: "Editor"
+    },
+    {
+      ext: "xml",
+      name: "XML Document",
+      role: "Editor"
+    },
+    {
+      ext: "txt",
+      name: "Text Document",
+      role: "Editor"
+    }
+  ],
   mac: {
-    target: ["dmg", "zip"],
+    target: ["dmg"],
     icon: "assets/icons/icon.icns",
     category: "public.app-category.developer-tools",
     hardenedRuntime: true,
     gatekeeperAssess: false,
     entitlements: "build/entitlements.mac.plist",
     entitlementsInherit: "build/entitlements.mac.plist",
-    notarize: process.env.APPLE_TEAM_ID ? {
-      teamId: process.env.APPLE_TEAM_ID
-    } : false
+    notarize: !!process.env.APPLE_TEAM_ID
   },
   mas: {
     entitlements: "build/entitlements.mas.plist",
@@ -48,10 +74,17 @@ const config = {
     hardenedRuntime: false
   },
   dmg: {
-    sign: true,
+    sign: false,
+    background: "build/dmg-background.png",
+    iconSize: 80,
+    iconTextSize: 12,
+    window: {
+      width: 540,
+      height: 380
+    },
     contents: [
-      { x: 130, y: 220 },
-      { x: 410, y: 220, type: "link", path: "/Applications" }
+      { x: 140, y: 190 },
+      { x: 400, y: 190, type: "link", path: "/Applications" }
     ]
   },
   win: {
