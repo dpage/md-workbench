@@ -15,65 +15,11 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "generate-icons": "node scripts/generate-icons.js",
-    "package:win": "electron-builder --win",
-    "package:mac": "electron-builder --mac",
-    "package:mac-mas": "electron-builder --mac --config.mac.target=mas",
-    "package:linux": "electron-builder --linux",
-    "package:all": "electron-builder --win --mac --linux"
-  },
-  "build": {
-    "appId": "com.example.mdworkbench",
-    "productName": "Markdown Workbench",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/main/**/*",
-      "dist/renderer/**/*",
-      "!dist/**/*.map",
-      "!dist/**/*.d.ts",
-      "!dist/**/*.d.ts.map",
-      "!dist/test/**/*",
-      "!dist/shared/**/*",
-      "package.json",
-      "!node_modules/**/*"
-    ],
-    "asarUnpack": [],
-    "extraMetadata": {
-      "main": "dist/main/main.js"
-    },
-    "win": {
-      "target": [
-        "nsis",
-        "portable"
-      ],
-      "icon": "assets/icons/icon.ico"
-    },
-    "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "icon": "assets/icons/icon.icns",
-      "category": "public.app-category.developer-tools",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
-    },
-    "mas": {
-      "entitlements": "build/entitlements.mas.plist",
-      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
-      "hardenedRuntime": false
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "icon": "assets/icons",
-      "category": "Development"
-    }
+    "package:win": "electron-builder --win --config electron-builder.config.js",
+    "package:mac": "electron-builder --mac --config electron-builder.config.js",
+    "package:mac-mas": "electron-builder --mac --config electron-builder.config.js --config.mac.target=mas",
+    "package:linux": "electron-builder --linux --config electron-builder.config.js",
+    "package:all": "electron-builder --win --mac --linux --config electron-builder.config.js"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",
