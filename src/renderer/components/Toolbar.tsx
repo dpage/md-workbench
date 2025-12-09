@@ -291,111 +291,113 @@ const Toolbar: React.FC<ToolbarProps> = ({
         )}
       </div>
       <div className="toolbar-actions">
-        <button
-          className="toolbar-button toolbar-button-open"
-          onClick={onOpenFile}
-          title="Open File (Cmd+O)"
-          aria-label="Open File"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+        <div className="toolbar-file-group">
+          <button
+            className="toolbar-button toolbar-button-open"
+            onClick={onOpenFile}
+            title="Open File (Cmd+O)"
+            aria-label="Open File"
           >
-            <path
-              d="M2 13V3C2 2.44772 2.44772 2 3 2H6L8 4H13C13.5523 4 14 4.44772 14 5V13C14 13.5523 13.5523 14 13 14H3C2.44772 14 2 13.5523 2 13Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span>Open</span>
-        </button>
-        <button
-          className="toolbar-button toolbar-button-save"
-          onClick={onSave}
-          disabled={!hasActiveTab || !isDirty}
-          title="Save (Cmd+S)"
-          aria-label="Save"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M2 13V3C2 2.44772 2.44772 2 3 2H6L8 4H13C13.5523 4 14 4.44772 14 5V13C14 13.5523 13.5523 14 13 14H3C2.44772 14 2 13.5523 2 13Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Open</span>
+          </button>
+          <button
+            className="toolbar-button toolbar-button-save"
+            onClick={onSave}
+            disabled={!hasActiveTab || !isDirty}
+            title="Save (Cmd+S)"
+            aria-label="Save"
           >
-            <path
-              d="M12.5 14H3.5C2.94772 14 2.5 13.5523 2.5 13V3C2.5 2.44772 2.94772 2 3.5 2H10.5L13.5 5V13C13.5 13.5523 13.0523 14 12.5 14Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M5 2V5H10"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M5 14V10H11V14"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span>Save</span>
-        </button>
-        <button
-          className="toolbar-button toolbar-button-save-as"
-          onClick={onSaveAs}
-          disabled={!hasActiveTab}
-          title="Save As (Cmd+Shift+S)"
-          aria-label="Save As"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12.5 14H3.5C2.94772 14 2.5 13.5523 2.5 13V3C2.5 2.44772 2.94772 2 3.5 2H10.5L13.5 5V13C13.5 13.5523 13.0523 14 12.5 14Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M5 2V5H10"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M5 14V10H11V14"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span>Save</span>
+          </button>
+          <button
+            className="toolbar-button toolbar-button-save-as"
+            onClick={onSaveAs}
+            disabled={!hasActiveTab}
+            title="Save As (Cmd+Shift+S)"
+            aria-label="Save As"
           >
-            <path
-              d="M11.5 14H3.5C2.94772 14 2.5 13.5523 2.5 13V3C2.5 2.44772 2.94772 2 3.5 2H9.5L12.5 5V9"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M5 2V5H9"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M5 14V10H9V14"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M12 11V15M10 13H14"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
-          <span>Save As</span>
-        </button>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M11.5 14H3.5C2.94772 14 2.5 13.5523 2.5 13V3C2.5 2.44772 2.94772 2 3.5 2H9.5L12.5 5V9"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M5 2V5H9"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M5 14V10H9V14"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M12 11V15M10 13H14"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span>Save As</span>
+          </button>
+        </div>
         {isMarkdownFile && (
           <div className="toolbar-view-mode-group">
             <button

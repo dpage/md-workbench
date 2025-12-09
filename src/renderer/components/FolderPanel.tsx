@@ -7,7 +7,7 @@
 // See LICENSE.md for details.
 //
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import FileTree from './FileTree';
 
 interface FolderPanelProps {
@@ -17,6 +17,10 @@ interface FolderPanelProps {
   onClose: () => void;
 }
 
+const MIN_WIDTH = 150;
+const MAX_WIDTH = 500;
+const DEFAULT_WIDTH = 250;
+
 const FolderPanel: React.FC<FolderPanelProps> = ({
   folderPath,
   folderName,
@@ -24,6 +28,9 @@ const FolderPanel: React.FC<FolderPanelProps> = ({
   onClose,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const [isResizing, setIsResizing] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const handleToggleCollapse = useCallback(() => {
     setIsCollapsed((prev) => !prev);
@@ -33,8 +40,42 @@ const FolderPanel: React.FC<FolderPanelProps> = ({
     onClose();
   }, [onClose]);
 
+  // Handle resize start
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  // Handle resize
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (panelRef.current) {
+        const newWidth = e.clientX - panelRef.current.getBoundingClientRect().left;
+        setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, newWidth)));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
   return (
-    <div className={`folder-panel ${isCollapsed ? 'collapsed' : ''}`}>
+    <div
+      ref={panelRef}
+      className={`folder-panel ${isCollapsed ? 'collapsed' : ''} ${isResizing ? 'resizing' : ''}`}
+      style={{ width: isCollapsed ? undefined : width }}
+    >
       <div className="folder-panel-header">
         <button
           className="folder-panel-toggle"
@@ -108,6 +149,13 @@ const FolderPanel: React.FC<FolderPanelProps> = ({
         <div className="folder-panel-content">
           <FileTree folderPath={folderPath} onFileClick={onFileClick} />
         </div>
+      )}
+      {!isCollapsed && (
+        <div
+          className="folder-panel-resize-handle"
+          onMouseDown={handleResizeStart}
+          title="Drag to resize"
+        />
       )}
     </div>
   );

@@ -45,6 +45,38 @@ interface ContextMenuState {
   tabIndex: number;
 }
 
+// File type to color mapping
+const getFileTypeColor = (fileType?: string): string | null => {
+  switch (fileType) {
+    case 'markdown':
+      return '#5f9e72'; // green (accent)
+    case 'json':
+      return '#f0c040'; // yellow
+    case 'yaml':
+      return '#cb4b16'; // orange
+    case 'xml':
+    case 'html':
+      return '#e44d26'; // html orange
+    case 'javascript':
+      return '#f7df1e'; // js yellow
+    case 'typescript':
+      return '#3178c6'; // ts blue
+    case 'css':
+    case 'scss':
+    case 'less':
+      return '#264de4'; // css blue
+    case 'python':
+      return '#3776ab'; // python blue
+    case 'sql':
+      return '#00758f'; // sql teal
+    case 'bash':
+    case 'shell':
+      return '#4eaa25'; // shell green
+    default:
+      return null;
+  }
+};
+
 const TabBar: React.FC<TabBarProps> = ({
   tabs,
   activeTabId,
@@ -218,28 +250,38 @@ const TabBar: React.FC<TabBarProps> = ({
         </button>
       )}
       <div className="tabs-container" ref={tabsContainerRef}>
-        {tabs.map((tab, index) => (
-          <div
-            key={tab.id}
-            className={`tab ${tab.id === activeTabId ? 'active' : ''} ${tab.isDirty ? 'dirty' : ''}`}
-            onClick={() => onTabSelect(tab.id)}
-            onContextMenu={(e) => handleContextMenu(e, tab.id, index)}
-            title={tab.filePath}
-          >
-            {tab.isDirty && <span className="tab-dirty-indicator" />}
-            <span className="tab-title">{tab.fileName}</span>
-            <button
-              className="tab-close"
-              onClick={(e) => {
-                e.stopPropagation();
-                onTabClose(tab.id);
-              }}
-              aria-label={`Close ${tab.fileName}`}
+        {tabs.map((tab, index) => {
+          const fileTypeColor = getFileTypeColor(tab.fileType);
+          return (
+            <div
+              key={tab.id}
+              className={`tab ${tab.id === activeTabId ? 'active' : ''} ${tab.isDirty ? 'dirty' : ''}`}
+              onClick={() => onTabSelect(tab.id)}
+              onContextMenu={(e) => handleContextMenu(e, tab.id, index)}
+              title={tab.filePath}
             >
-              &times;
-            </button>
-          </div>
-        ))}
+              {tab.isDirty && <span className="tab-dirty-indicator" />}
+              {fileTypeColor && (
+                <span
+                  className="tab-file-type-indicator"
+                  style={{ backgroundColor: fileTypeColor }}
+                  aria-hidden="true"
+                />
+              )}
+              <span className="tab-title">{tab.fileName}</span>
+              <button
+                className="tab-close"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTabClose(tab.id);
+                }}
+                aria-label={`Close ${tab.fileName}`}
+              >
+                &times;
+              </button>
+            </div>
+          );
+        })}
       </div>
       {showScrollButtons && (
         <button

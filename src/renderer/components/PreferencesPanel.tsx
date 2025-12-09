@@ -296,6 +296,20 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
                 <label className="preferences-checkbox-label">
                   <input
                     type="checkbox"
+                    checked={localPreferences.editor?.showLineNumbers ?? true}
+                    onChange={(e) => handleEditorChange('showLineNumbers', e.target.checked)}
+                  />
+                  <span>Show line numbers</span>
+                </label>
+                <p className="preferences-description">
+                  Display line numbers in the gutter on the left side of the editor.
+                </p>
+              </div>
+
+              <div className="preferences-group">
+                <label className="preferences-checkbox-label">
+                  <input
+                    type="checkbox"
                     checked={localPreferences.editor?.showColumnRuler ?? true}
                     onChange={(e) => handleEditorChange('showColumnRuler', e.target.checked)}
                   />

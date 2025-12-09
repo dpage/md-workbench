@@ -20,6 +20,9 @@ interface StatusBarProps {
   isDirty?: boolean;
   encoding?: string;
   lineEnding?: 'LF' | 'CRLF' | 'Mixed';
+  onGoToLine?: () => void;
+  onChangeEncoding?: () => void;
+  onChangeLineEnding?: () => void;
 }
 
 const StatusBar: React.FC<StatusBarProps> = ({
@@ -32,6 +35,9 @@ const StatusBar: React.FC<StatusBarProps> = ({
   isDirty = false,
   encoding = 'UTF-8',
   lineEnding = 'LF',
+  onGoToLine,
+  onChangeEncoding,
+  onChangeLineEnding,
 }) => {
   // Get display name for file type
   const getFileTypeDisplayName = (type: string): string => {
@@ -54,21 +60,37 @@ const StatusBar: React.FC<StatusBarProps> = ({
       </div>
       <div className="status-bar-right">
         {editMode && cursorLine !== undefined && cursorColumn !== undefined && (
-          <span className="status-bar-item status-bar-cursor" title="Cursor position">
+          <button
+            className="status-bar-item status-bar-cursor status-bar-clickable"
+            title="Go to line (Ctrl+G)"
+            onClick={onGoToLine}
+          >
             Ln {cursorLine}, Col {cursorColumn}
-          </span>
+          </button>
         )}
         {totalLines !== undefined && (
-          <span className="status-bar-item status-bar-lines" title="Total lines">
+          <button
+            className="status-bar-item status-bar-lines status-bar-clickable"
+            title="Go to line (Ctrl+G)"
+            onClick={onGoToLine}
+          >
             {totalLines} {totalLines === 1 ? 'line' : 'lines'}
-          </span>
+          </button>
         )}
-        <span className="status-bar-item status-bar-encoding" title="File encoding">
+        <button
+          className="status-bar-item status-bar-encoding status-bar-clickable"
+          title="Change encoding"
+          onClick={onChangeEncoding}
+        >
           {encoding}
-        </span>
-        <span className="status-bar-item status-bar-eol" title="End of line sequence">
+        </button>
+        <button
+          className="status-bar-item status-bar-eol status-bar-clickable"
+          title="Change line ending"
+          onClick={onChangeLineEnding}
+        >
           {lineEnding}
-        </span>
+        </button>
         <span className="status-bar-item status-bar-filetype" title="File type">
           {fileTypeDisplay}
         </span>

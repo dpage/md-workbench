@@ -13,9 +13,9 @@
   /* Dark backgrounds */
   --bg-primary: #1a1a1c;
   --bg-secondary: #222224;
-  --bg-tertiary: #2a2a2c;
+  --bg-tertiary: #18181a;
   --bg-hover: #38383a;
-  --border-color: #38383a;
+  --border-color: #3a3a3c;
   --border-light: #48484a;
   /* Text colors */
   --text-primary: #e8e6e3;
@@ -1024,12 +1024,51 @@ body {
 }
 
 .toolbar-left,
-.toolbar-nav,
 .toolbar-actions {
   display: flex;
   align-items: center;
   gap: 4px;
   -webkit-app-region: no-drag;
+}
+
+/* Toolbar navigation group with subtle well */
+.toolbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 2px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-nav .toolbar-button {
+  padding: 4px 6px;
+  border-radius: 5px;
+}
+
+/* Toolbar file operations group */
+.toolbar-file-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 2px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.toolbar-file-group .toolbar-button {
+  padding: 4px 10px;
+  border-radius: 5px;
+}
+
+.toolbar-file-group .toolbar-button span {
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .toolbar-button {
@@ -1531,6 +1570,7 @@ body {
   border-radius: 8px;
   padding: 3px;
   margin-left: 8px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .toolbar-view-mode-group .toolbar-button {
@@ -1645,36 +1685,58 @@ body {
 }
 
 .split-divider {
-  width: 6px;
-  background-color: var(--border-color);
+  width: 2px;
+  padding: 0 7px;
+  margin: 0 -7px;
+  background-color: transparent;
   cursor: col-resize;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.15s;
+  transition: all 0.15s;
+  position: relative;
 }
 
-.split-divider:hover {
-  background-color: var(--accent-primary);
+.split-divider::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background-color: var(--border-color);
+  transition: all 0.15s;
 }
 
-.split-editor.dragging .split-divider {
+.split-divider:hover::before {
+  width: 4px;
   background-color: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.split-editor.dragging .split-divider::before {
+  width: 4px;
+  background-color: var(--accent-primary);
+  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .split-divider-handle {
-  width: 2px;
-  height: 32px;
+  width: 4px;
+  height: 40px;
   background-color: var(--text-muted);
-  border-radius: 1px;
-  opacity: 0.5;
+  border-radius: 2px;
+  opacity: 0.4;
+  z-index: 1;
+  transition: all 0.15s;
 }
 
 .split-divider:hover .split-divider-handle,
 .split-editor.dragging .split-divider-handle {
-  background-color: white;
+  background-color: var(--accent-primary);
   opacity: 1;
+  height: 48px;
 }
 
 /* Source Editor Container */
@@ -1684,6 +1746,46 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+}
+
+.source-editor-container.with-line-numbers {
+  display: flex;
+}
+
+/* Line Numbers Gutter */
+.line-numbers-gutter {
+  width: 3.5rem;
+  flex-shrink: 0;
+  background-color: var(--bg-tertiary);
+  border-right: 1px solid var(--border-color);
+  padding: 1.5rem 0;
+  overflow: hidden;
+  user-select: none;
+  text-align: right;
+}
+
+.line-number {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  height: calc(1.6 * 0.875rem);
+  padding-right: 0.75rem;
+  color: var(--text-hint);
+  transition: color 0.1s;
+}
+
+.line-number.current {
+  color: var(--accent-primary);
+  font-weight: 500;
+}
+
+.source-editor-container.with-line-numbers .source-editor,
+.source-editor-container.with-line-numbers .source-editor-highlight {
+  padding-left: 1rem;
+}
+
+.source-editor-container.with-line-numbers .current-line-highlight {
+  left: 3.5rem;
 }
 
 /* Column Ruler - vertical line at max line length */
@@ -1802,6 +1904,19 @@ body {
   border-radius: 50%;
   flex-shrink: 0;
   margin-right: 8px;
+}
+
+.tab-file-type-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 6px;
+  opacity: 0.8;
+}
+
+.tab.active .tab-file-type-indicator {
+  opacity: 1;
 }
 
 .tab.dirty .tab-title {
@@ -2322,16 +2437,18 @@ body {
 
 /* Folder Panel Styles */
 .folder-panel {
-  width: 250px;
-  min-width: 200px;
-  max-width: 400px;
+  min-width: 150px;
+  max-width: 500px;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  transition: width 0.2s ease;
   position: relative;
+}
+
+.folder-panel.resizing {
+  user-select: none;
 }
 
 .folder-panel::after {
@@ -2443,6 +2560,35 @@ body {
 .folder-panel-content {
   flex: 1;
   overflow: auto;
+}
+
+/* Folder Panel Resize Handle */
+.folder-panel-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.folder-panel-resize-handle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background-color: transparent;
+  transition: background-color 0.15s;
+}
+
+.folder-panel-resize-handle:hover::before,
+.folder-panel.resizing .folder-panel-resize-handle::before {
+  background-color: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 /* File Tree Styles */
@@ -3680,6 +3826,27 @@ body {
 
 .status-bar-item {
   white-space: nowrap;
+}
+
+/* Clickable status bar items */
+.status-bar-clickable {
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 3px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.status-bar-clickable:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.status-bar-clickable:active {
+  background-color: var(--border-color);
 }
 
 .status-bar-path {

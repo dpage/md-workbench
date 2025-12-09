@@ -47,12 +47,14 @@ export const DEFAULT_MARKDOWN_OPTIONS: MarkdownOptions = {
 };
 
 export interface EditorOptions {
+  showLineNumbers: boolean;
   showColumnRuler: boolean;
   showCurrentLineHighlight: boolean;
   showStatusBar: boolean;
 }
 
 export const DEFAULT_EDITOR_OPTIONS: EditorOptions = {
+  showLineNumbers: true,
   showColumnRuler: true,
   showCurrentLineHighlight: true,
   showStatusBar: true,

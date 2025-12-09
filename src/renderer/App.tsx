@@ -1213,6 +1213,7 @@ const App: React.FC = () => {
                   onAutoSave={handleSave}
                   onFormat={handleFormat}
                   formatOnSave={preferences.formatting?.formatOnSave ?? false}
+                  showLineNumbers={preferences.editor?.showLineNumbers ?? true}
                   showColumnRuler={preferences.editor?.showColumnRuler ?? true}
                   showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
                   maxLineLength={preferences.formatting?.maxLineLength ?? 79}
@@ -1241,6 +1242,7 @@ const App: React.FC = () => {
                   onAutoSave={handleSave}
                   onFormat={handleFormat}
                   formatOnSave={preferences.formatting?.formatOnSave ?? false}
+                  showLineNumbers={preferences.editor?.showLineNumbers ?? true}
                   showColumnRuler={preferences.editor?.showColumnRuler ?? true}
                   showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
                   maxLineLength={preferences.formatting?.maxLineLength ?? 79}

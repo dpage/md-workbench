@@ -89,6 +89,7 @@ interface SplitEditorProps {
   onAutoSave?: () => void;
   onFormat?: () => void;
   formatOnSave?: boolean;
+  showLineNumbers?: boolean;
   showColumnRuler?: boolean;
   showCurrentLineHighlight?: boolean;
   maxLineLength?: number;
@@ -129,6 +130,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   onAutoSave,
   onFormat,
   formatOnSave = false,
+  showLineNumbers = true,
   showColumnRuler = true,
   showCurrentLineHighlight = true,
   maxLineLength = 79,
@@ -165,6 +167,14 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     const lastNewlineIndex = textBeforeCursor.lastIndexOf('\n');
     return selectionStart - lastNewlineIndex; // 1-indexed column
   }, [editedContent, selectionStart]);
+
+  // Calculate total line count for line numbers gutter
+  const lineCount = useMemo(() => {
+    return editedContent.split('\n').length;
+  }, [editedContent]);
+
+  // Ref for line numbers gutter to sync scrolling
+  const lineNumbersRef = useRef<HTMLDivElement>(null);
 
   // Report cursor position changes to parent
   useEffect(() => {
@@ -760,14 +770,18 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
 
   const handleSourceScroll = useCallback(() => {
     syncScroll('source');
-    // Also sync highlight overlay and track scroll position
+    // Also sync highlight overlay, line numbers gutter, and track scroll position
     const textarea = textareaRef.current;
     const highlight = highlightRef.current;
+    const lineNumbers = lineNumbersRef.current;
     if (textarea && highlight) {
       highlight.scrollTop = textarea.scrollTop;
       highlight.scrollLeft = textarea.scrollLeft;
       setScrollTop(textarea.scrollTop);
       setScrollLeft(textarea.scrollLeft);
+    }
+    if (textarea && lineNumbers) {
+      lineNumbers.scrollTop = textarea.scrollTop;
     }
   }, [syncScroll]);
 
@@ -1152,11 +1166,27 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
               </button>
             )}
           </div>
-          <div className="source-editor-container">
+          <div className={`source-editor-container ${showLineNumbers ? 'with-line-numbers' : ''}`}>
+            {showLineNumbers && (
+              <div
+                ref={lineNumbersRef}
+                className="line-numbers-gutter"
+                aria-hidden="true"
+              >
+                {Array.from({ length: lineCount }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`line-number ${i === currentLineNumber ? 'current' : ''}`}
+                  >
+                    {i + 1}
+                  </div>
+                ))}
+              </div>
+            )}
             {showColumnRuler && (
               <div
                 className="column-ruler"
-                style={{ left: `calc(1.5rem + ${maxLineLength}ch - ${scrollLeft}px)` }}
+                style={{ left: `calc(${showLineNumbers ? '4rem' : '1.5rem'} + ${maxLineLength}ch - ${scrollLeft}px)` }}
               />
             )}
             {showCurrentLineHighlight && (
