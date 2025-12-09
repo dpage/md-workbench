@@ -2,6 +2,16 @@
 
 All notable changes to Markdown Workbench will be documented in this file.
 
+## [1.0.0-alpha.4] - 2025-12-09
+
+### Changed
+- **App icon redesign**: Updated icon from purple to terminal green to match the app's color scheme
+- **Updated electron-builder**: Upgraded from v24 to v26 for improved DMG creation
+
+### Added
+- **Custom DMG installer background**: Branded installer with app name and visual guidance
+- **macOS file associations**: App now appears in "Open With" menu for Markdown, JSON, YAML, XML, and text files
+
 ## [1.0.0-alpha.3] - 2025-12-09
 
 ### Changed
