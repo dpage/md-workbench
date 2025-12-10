@@ -136,6 +136,12 @@ let mainWindow: BrowserWindow | null = null;
 // Files to open when app is ready (from command line or open-file event)
 let filesToOpenOnReady: string[] = [];
 
+// Track if renderer is ready to receive IPC messages
+let webContentsReady = false;
+
+// Track if initial startup sequence is complete (session restored + queued files opened)
+let initialStartupComplete = false;
+
 // File watchers map
 const fileWatchers = new Map<string, fs.FSWatcher>();
 
@@ -888,6 +894,9 @@ function createWindow(): void {
 
   // Restore session when renderer is ready
   mainWindow.webContents.on('did-finish-load', async () => {
+    // Mark renderer as ready to receive IPC messages
+    webContentsReady = true;
+
     // Send initial theme
     mainWindow?.webContents.send('theme-changed', getTheme());
 
@@ -900,7 +909,17 @@ function createWindow(): void {
         await openFile(filePath);
       }
       filesToOpenOnReady = [];
+      // Bring app to foreground since we opened files from external source
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.moveTop();
+        mainWindow.focus();
+        app.focus({ steal: true });
+      }
     }
+
+    // Mark initial startup as complete - now open-file events can be handled directly
+    initialStartupComplete = true;
   });
 
   // Handle window close with unsaved changes check
@@ -916,6 +935,8 @@ function createWindow(): void {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    webContentsReady = false;
+    initialStartupComplete = false;
   });
 }
 
@@ -1166,16 +1187,19 @@ app.on('open-file', (event, filePath) => {
     return;
   }
 
-  if (mainWindow) {
-    // App is already running, open the file
+  if (mainWindow && initialStartupComplete) {
+    // App is fully initialized, open the file directly
     openFile(filePath);
-    // Focus the window
+    // Bring app and window to foreground on macOS
     if (mainWindow.isMinimized()) {
       mainWindow.restore();
     }
+    mainWindow.show();
+    mainWindow.moveTop();
     mainWindow.focus();
+    app.focus({ steal: true });
   } else {
-    // App is starting up, queue the file to open when ready
+    // App is starting up or not fully initialized, queue the file to open when ready
     filesToOpenOnReady.push(filePath);
   }
 });
