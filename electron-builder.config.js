@@ -59,7 +59,7 @@ const config = {
     }
   ],
   mac: {
-    target: ["zip"],
+    target: ["dmg"],
     icon: "assets/icons/icon.icns",
     category: "public.app-category.developer-tools",
     hardenedRuntime: true,
@@ -75,6 +75,7 @@ const config = {
   },
   dmg: {
     sign: false,
+    format: "UDBZ",
     background: "build/dmg-background.png",
     iconSize: 80,
     iconTextSize: 12,
