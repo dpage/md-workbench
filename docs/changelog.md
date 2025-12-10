@@ -6,7 +6,7 @@ All notable changes to Markdown Workbench will be documented in this file.
 
 ### Fixed
 - **macOS "Open With" functionality**: Files now properly open when using Finder's "Open With" menu, whether the app is running, minimized, or not running
-- **DMG build reliability**: Switched to UDBZ compression format to resolve hdiutil build failures
+- **DMG build reliability**: Resolved intermittent hdiutil build failures
 
 ## [1.0.0-alpha.4] - 2025-12-09
 

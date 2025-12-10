@@ -75,7 +75,7 @@ const config = {
   },
   dmg: {
     sign: false,
-    format: "UDBZ",
+    format: "UDZO",
     background: "build/dmg-background.png",
     iconSize: 80,
     iconTextSize: 12,
