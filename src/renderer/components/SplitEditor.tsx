@@ -1043,7 +1043,15 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
           );
           const currentHighlight = currentTextHighlight || currentUrlHighlight;
           if (currentHighlight) {
-            currentHighlight.scrollIntoView({ behavior: 'auto', block: 'center' });
+            // Use manual scroll calculation to avoid scrollIntoView scrolling parent containers
+            let offsetTop = 0;
+            let element: HTMLElement | null = currentHighlight as HTMLElement;
+            while (element && element !== renderedPanel) {
+              offsetTop += element.offsetTop;
+              element = element.offsetParent as HTMLElement;
+            }
+            const targetScrollTop = offsetTop - (renderedPanel.clientHeight / 2) + (currentHighlight.clientHeight / 2);
+            renderedPanel.scrollTop = Math.max(0, targetScrollTop);
           }
         }
       }, 50);

@@ -52,6 +52,7 @@ interface MarkdownViewerProps {
   onScrollChange?: (position: ScrollPosition) => void;
   searchHighlight?: SearchHighlightOptions;
   currentMatchIndex?: number;
+  onMatchCountChange?: (count: number) => void;
 }
 
 // Initialize mermaid with theme detection
@@ -521,12 +522,17 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
   onScrollChange,
   searchHighlight,
   currentMatchIndex = 0,
+  onMatchCountChange,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const scrollPositionRef = useRef<ScrollPosition>(
     initialScrollPosition || { top: 0, left: 0 }
   );
+  // Track previous values to detect what changed
+  const prevSearchQueryRef = useRef<string | undefined>(undefined);
+  const prevContentRef = useRef<string | undefined>(undefined);
+  const prevMatchIndexRef = useRef<number>(0);
 
   // Set initial scroll position on mount
   useEffect(() => {
@@ -616,219 +622,285 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
     }
   }, [content]);
 
-  // Search highlighting effect
+  // Combined search highlighting and current match effect
+  // Uses refs to track what changed to avoid unnecessary rebuilds
   useEffect(() => {
     const contentEl = contentRef.current;
+    const scrollContainer = scrollContainerRef.current;
     if (!contentEl) return;
 
-    // Remove existing highlights
-    const existingHighlights = contentEl.querySelectorAll('mark.search-highlight');
-    existingHighlights.forEach((mark) => {
-      const parent = mark.parentNode;
-      if (parent) {
-        parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
-        parent.normalize();
-      }
-    });
+    const currentQuery = searchHighlight?.query;
+    const queryChanged = currentQuery !== prevSearchQueryRef.current;
+    const contentChanged = content !== prevContentRef.current;
+    const indexChanged = currentMatchIndex !== prevMatchIndexRef.current;
 
-    // Remove existing URL match indicators from links
-    const existingUrlMatches = contentEl.querySelectorAll('a.search-url-match, a.search-url-match-current');
-    existingUrlMatches.forEach((link) => {
-      link.classList.remove('search-url-match', 'search-url-match-current');
-    });
+    // Update refs for next comparison
+    prevSearchQueryRef.current = currentQuery;
+    prevContentRef.current = content;
+    prevMatchIndexRef.current = currentMatchIndex;
 
-    if (!searchHighlight?.query) return;
+    // Determine if we need to rebuild highlights or just update current
+    const needsRebuild = queryChanged || contentChanged;
 
-    // Build regex for search
-    let searchRegex: RegExp;
-    try {
-      if (searchHighlight.useRegex) {
-        searchRegex = new RegExp(
-          searchHighlight.query,
-          searchHighlight.caseSensitive ? 'g' : 'gi'
-        );
-      } else {
-        const escapedQuery = searchHighlight.query.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          '\\$&'
-        );
-        searchRegex = new RegExp(
-          escapedQuery,
-          searchHighlight.caseSensitive ? 'g' : 'gi'
-        );
-      }
-    } catch {
-      return; // Invalid regex
-    }
-
-    // We need to collect matches in DOM order (interleaving text matches and URL matches)
-    // to stay in sync with the source panel which searches raw markdown linearly
-
-    // First, find all links with URL matches and store their positions
-    const linksWithUrlMatches: Array<{ element: Element; position: number }> = [];
-    const links = contentEl.querySelectorAll('a[href]');
-    links.forEach((link) => {
-      const href = link.getAttribute('href') || '';
-      searchRegex.lastIndex = 0;
-      // Count how many matches are in this URL
-      let urlMatch;
-      while ((urlMatch = searchRegex.exec(href)) !== null) {
-        // Get approximate document position for ordering
-        const rect = link.getBoundingClientRect();
-        linksWithUrlMatches.push({
-          element: link,
-          position: rect.top * 10000 + rect.left
-        });
-        if (urlMatch[0].length === 0) searchRegex.lastIndex++;
-      }
-    });
-
-    // Find and highlight text nodes, collecting match info
-    const walker = document.createTreeWalker(
-      contentEl,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode: (node) => {
-          const parent = node.parentElement;
-          if (
-            parent &&
-            (parent.tagName === 'SCRIPT' ||
-              parent.tagName === 'STYLE' ||
-              parent.tagName === 'CODE' ||
-              parent.tagName === 'PRE' ||
-              parent.classList.contains('search-highlight'))
-          ) {
-            return NodeFilter.FILTER_REJECT;
-          }
-          return NodeFilter.FILTER_ACCEPT;
-        },
-      }
-    );
-
-    // Collect text nodes and their matches
-    interface TextMatch {
-      textNode: Text;
-      start: number;
-      end: number;
-      text: string;
-      position: number;
-    }
-    const textMatches: TextMatch[] = [];
-
-    let node;
-    while ((node = walker.nextNode())) {
-      const textNode = node as Text;
-      const text = textNode.textContent || '';
-      let match;
-
-      searchRegex.lastIndex = 0;
-      while ((match = searchRegex.exec(text)) !== null) {
-        // Get position for ordering - use parent element's position
-        const parent = textNode.parentElement;
-        const rect = parent?.getBoundingClientRect() || { top: 0, left: 0 };
-        textMatches.push({
-          textNode,
-          start: match.index,
-          end: match.index + match[0].length,
-          text: match[0],
-          position: rect.top * 10000 + rect.left + match.index,
-        });
-        if (match[0].length === 0) searchRegex.lastIndex++;
-      }
-    }
-
-    // Combine and sort all matches by position
-    // In markdown [text](url), text comes before URL, so we need to preserve that order
-    type MatchInfo =
-      | { type: 'text'; data: TextMatch }
-      | { type: 'url'; data: { element: Element; position: number } };
-
-    const allMatches: MatchInfo[] = [
-      ...textMatches.map((m) => ({ type: 'text' as const, data: m })),
-      ...linksWithUrlMatches.map((m) => ({ type: 'url' as const, data: m })),
-    ].sort((a, b) => {
-      const posA = a.type === 'text' ? a.data.position : a.data.position;
-      const posB = b.type === 'text' ? b.data.position : b.data.position;
-      // Primary sort by position
-      if (Math.abs(posA - posB) > 100) {
-        return posA - posB;
-      }
-      // For matches at similar positions (same element), text matches come before URL matches
-      // This preserves markdown source order: [text](url)
-      if (a.type === 'text' && b.type === 'url') return -1;
-      if (a.type === 'url' && b.type === 'text') return 1;
-      return posA - posB;
-    });
-
-    // Now apply highlights with correct indices
-    // Group text matches by text node for efficient DOM manipulation
-    const textNodeMatches = new Map<Text, Array<{ start: number; end: number; text: string; globalIndex: number }>>();
-
-    allMatches.forEach((match, globalIndex) => {
-      if (match.type === 'text') {
-        const existing = textNodeMatches.get(match.data.textNode) || [];
-        existing.push({
-          start: match.data.start,
-          end: match.data.end,
-          text: match.data.text,
-          globalIndex,
-        });
-        textNodeMatches.set(match.data.textNode, existing);
-      } else {
-        // URL match - add class to link
-        const className = globalIndex === currentMatchIndex
-          ? 'search-url-match search-url-match-current'
-          : 'search-url-match';
-        match.data.element.classList.add(...className.split(' '));
-      }
-    });
-
-    // Apply text highlights
-    textNodeMatches.forEach((matches, textNode) => {
-      // Sort matches within this text node by start position
-      matches.sort((a, b) => a.start - b.start);
-
-      const text = textNode.textContent || '';
-      const fragment = document.createDocumentFragment();
-      let lastEnd = 0;
-
-      matches.forEach((m) => {
-        if (m.start > lastEnd) {
-          fragment.appendChild(
-            document.createTextNode(text.substring(lastEnd, m.start))
-          );
+    if (needsRebuild) {
+      // Remove existing highlights
+      const existingHighlights = contentEl.querySelectorAll('mark.search-highlight');
+      existingHighlights.forEach((mark) => {
+        const parent = mark.parentNode;
+        if (parent) {
+          parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
+          parent.normalize();
         }
-
-        const mark = document.createElement('mark');
-        mark.className =
-          m.globalIndex === currentMatchIndex
-            ? 'search-highlight search-highlight-current'
-            : 'search-highlight';
-        mark.textContent = m.text;
-        fragment.appendChild(mark);
-
-        lastEnd = m.end;
       });
 
-      if (lastEnd < text.length) {
-        fragment.appendChild(document.createTextNode(text.substring(lastEnd)));
+      // Remove existing URL match indicators from links
+      const existingUrlMatches = contentEl.querySelectorAll('a.search-url-match, a.search-url-match-current');
+      existingUrlMatches.forEach((link) => {
+        link.classList.remove('search-url-match', 'search-url-match-current');
+      });
+
+      if (!currentQuery) {
+        if (onMatchCountChange) {
+          onMatchCountChange(0);
+        }
+        return;
       }
 
-      textNode.parentNode?.replaceChild(fragment, textNode);
-    });
+      // Build regex for search
+      let searchRegex: RegExp;
+      try {
+        if (searchHighlight?.useRegex) {
+          searchRegex = new RegExp(
+            currentQuery,
+            searchHighlight.caseSensitive ? 'g' : 'gi'
+          );
+        } else {
+          const escapedQuery = currentQuery.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            '\\$&'
+          );
+          searchRegex = new RegExp(
+            escapedQuery,
+            searchHighlight?.caseSensitive ? 'g' : 'gi'
+          );
+        }
+      } catch {
+        return; // Invalid regex
+      }
 
-    // Scroll to current match (either text highlight or URL match link)
-    const currentTextHighlight = contentEl.querySelector(
-      'mark.search-highlight-current'
-    );
-    const currentUrlHighlight = contentEl.querySelector(
-      'a.search-url-match-current'
-    );
-    const currentHighlight = currentTextHighlight || currentUrlHighlight;
-    if (currentHighlight) {
-      currentHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // First, find all links with URL matches and store their positions
+      const linksWithUrlMatches: Array<{ element: Element; position: number }> = [];
+      const links = contentEl.querySelectorAll('a[href]');
+      links.forEach((link) => {
+        const href = link.getAttribute('href') || '';
+        searchRegex.lastIndex = 0;
+        let urlMatch;
+        while ((urlMatch = searchRegex.exec(href)) !== null) {
+          const rect = link.getBoundingClientRect();
+          linksWithUrlMatches.push({
+            element: link,
+            position: rect.top * 10000 + rect.left
+          });
+          if (urlMatch[0].length === 0) searchRegex.lastIndex++;
+        }
+      });
+
+      // Find and highlight text nodes
+      const walker = document.createTreeWalker(
+        contentEl,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode: (node) => {
+            // Check all ancestors up to contentEl, not just immediate parent
+            let element = node.parentElement;
+            while (element && element !== contentEl) {
+              const tagName = element.tagName;
+              if (
+                tagName === 'SCRIPT' ||
+                tagName === 'STYLE' ||
+                tagName === 'CODE' ||
+                tagName === 'PRE' ||
+                element.classList.contains('search-highlight') ||
+                element.classList.contains('code-block-wrapper') ||
+                element.classList.contains('syntax-highlighted')
+              ) {
+                return NodeFilter.FILTER_REJECT;
+              }
+              element = element.parentElement;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          },
+        }
+      );
+
+      interface TextMatch {
+        textNode: Text;
+        start: number;
+        end: number;
+        text: string;
+        position: number;
+      }
+      const textMatches: TextMatch[] = [];
+
+      let node;
+      while ((node = walker.nextNode())) {
+        const textNode = node as Text;
+        const text = textNode.textContent || '';
+        let match;
+
+        searchRegex.lastIndex = 0;
+        while ((match = searchRegex.exec(text)) !== null) {
+          const parent = textNode.parentElement;
+          const rect = parent?.getBoundingClientRect() || { top: 0, left: 0 };
+          textMatches.push({
+            textNode,
+            start: match.index,
+            end: match.index + match[0].length,
+            text: match[0],
+            position: rect.top * 10000 + rect.left + match.index,
+          });
+          if (match[0].length === 0) searchRegex.lastIndex++;
+        }
+      }
+
+      // Combine and sort all matches
+      type MatchInfo =
+        | { type: 'text'; data: TextMatch }
+        | { type: 'url'; data: { element: Element; position: number } };
+
+      const allMatches: MatchInfo[] = [
+        ...textMatches.map((m) => ({ type: 'text' as const, data: m })),
+        ...linksWithUrlMatches.map((m) => ({ type: 'url' as const, data: m })),
+      ].sort((a, b) => {
+        const posA = a.type === 'text' ? a.data.position : a.data.position;
+        const posB = b.type === 'text' ? b.data.position : b.data.position;
+        if (Math.abs(posA - posB) > 100) {
+          return posA - posB;
+        }
+        if (a.type === 'text' && b.type === 'url') return -1;
+        if (a.type === 'url' && b.type === 'text') return 1;
+        return posA - posB;
+      });
+
+      // Report actual match count to parent
+      if (onMatchCountChange) {
+        onMatchCountChange(allMatches.length);
+      }
+
+      // Group text matches by text node
+      const textNodeMatches = new Map<Text, Array<{ start: number; end: number; text: string; globalIndex: number }>>();
+
+      allMatches.forEach((match, globalIndex) => {
+        if (match.type === 'text') {
+          const existing = textNodeMatches.get(match.data.textNode) || [];
+          existing.push({
+            start: match.data.start,
+            end: match.data.end,
+            text: match.data.text,
+            globalIndex,
+          });
+          textNodeMatches.set(match.data.textNode, existing);
+        } else {
+          // URL match - add class with current indicator if applicable
+          const className = globalIndex === currentMatchIndex
+            ? 'search-url-match search-url-match-current'
+            : 'search-url-match';
+          match.data.element.classList.add(...className.split(' '));
+        }
+      });
+
+      // Apply text highlights with current indicator
+      textNodeMatches.forEach((matches, textNode) => {
+        matches.sort((a, b) => a.start - b.start);
+
+        const text = textNode.textContent || '';
+        const fragment = document.createDocumentFragment();
+        let lastEnd = 0;
+
+        matches.forEach((m) => {
+          if (m.start > lastEnd) {
+            fragment.appendChild(
+              document.createTextNode(text.substring(lastEnd, m.start))
+            );
+          }
+
+          const mark = document.createElement('mark');
+          mark.className = m.globalIndex === currentMatchIndex
+            ? 'search-highlight search-highlight-current'
+            : 'search-highlight';
+          mark.textContent = m.text;
+          fragment.appendChild(mark);
+
+          lastEnd = m.end;
+        });
+
+        if (lastEnd < text.length) {
+          fragment.appendChild(document.createTextNode(text.substring(lastEnd)));
+        }
+
+        textNode.parentNode?.replaceChild(fragment, textNode);
+      });
+    } else if (indexChanged) {
+      // Only currentMatchIndex changed - just update classes, don't rebuild
+      // Remove current class from all highlights
+      contentEl.querySelectorAll('mark.search-highlight-current').forEach((mark) => {
+        mark.classList.remove('search-highlight-current');
+      });
+      contentEl.querySelectorAll('a.search-url-match-current').forEach((link) => {
+        link.classList.remove('search-url-match-current');
+      });
+
+      // Find all highlights and add current class to the right one
+      const allTextHighlights = contentEl.querySelectorAll('mark.search-highlight');
+      const allUrlMatches = contentEl.querySelectorAll('a.search-url-match');
+
+      if (allTextHighlights.length === 0 && allUrlMatches.length === 0) return;
+
+      const allMatches: Element[] = [];
+      allTextHighlights.forEach(el => allMatches.push(el));
+      allUrlMatches.forEach(el => allMatches.push(el));
+
+      allMatches.sort((a, b) => {
+        const position = a.compareDocumentPosition(b);
+        if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+        if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+        return 0;
+      });
+
+      const currentMatch = allMatches[currentMatchIndex];
+      if (currentMatch) {
+        if (currentMatch.tagName === 'MARK') {
+          currentMatch.classList.add('search-highlight-current');
+        } else {
+          currentMatch.classList.add('search-url-match-current');
+        }
+      }
     }
-  }, [searchHighlight, currentMatchIndex, content]);
+
+    // Scroll to current match (for both rebuild and index-only change)
+    if (scrollContainer && (needsRebuild || indexChanged)) {
+      // Small delay to ensure DOM is updated
+      requestAnimationFrame(() => {
+        const currentHighlight = contentEl.querySelector('mark.search-highlight-current') ||
+                                 contentEl.querySelector('a.search-url-match-current');
+        if (currentHighlight) {
+          // Use offsetTop for more reliable positioning
+          let offsetTop = 0;
+          let element: HTMLElement | null = currentHighlight as HTMLElement;
+
+          // Calculate offset from the scroll container
+          while (element && element !== scrollContainer) {
+            offsetTop += element.offsetTop;
+            element = element.offsetParent as HTMLElement;
+          }
+
+          // Center the match in the viewport
+          const targetScrollTop = offsetTop - (scrollContainer.clientHeight / 2) + (currentHighlight.clientHeight / 2);
+          scrollContainer.scrollTop = Math.max(0, targetScrollTop);
+        }
+      });
+    }
+  }, [searchHighlight, content, currentMatchIndex, onMatchCountChange]);
 
   // Create components with access to filePath
   const components = useMemo(
@@ -890,9 +962,22 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
     [filePath, handleLinkClick]
   );
 
+  // Generate a stable key based on content to force re-render when content changes
+  // This prevents React reconciliation errors when we've modified the DOM with highlights
+  const contentKey = useMemo(() => {
+    // Simple hash to avoid key being too long
+    let hash = 0;
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return `md-${hash}`;
+  }, [content]);
+
   return (
     <div className="markdown-viewer" ref={scrollContainerRef}>
-      <div className="markdown-content" ref={contentRef}>
+      <div className="markdown-content" ref={contentRef} key={contentKey}>
         <ReactMarkdown
           remarkPlugins={[
             remarkGfm,

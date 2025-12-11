@@ -810,12 +810,9 @@ const App: React.FC = () => {
           if (match[0].length === 0) searchRegex.lastIndex++;
         }
 
-        setViewMatchCount(matches.length);
-        if (matches.length > 0 && viewCurrentMatch === 0) {
-          setViewCurrentMatch(1);
-        } else if (matches.length === 0) {
-          setViewCurrentMatch(0);
-        }
+        // Don't set viewMatchCount here - let MarkdownViewer report the actual
+        // DOM match count via onMatchCountChange callback. This avoids showing
+        // mismatched counts (raw markdown vs rendered DOM).
 
         return { matches };
       } catch {
@@ -845,6 +842,21 @@ const App: React.FC = () => {
   // No-op handlers for view mode (no replace functionality)
   const handleViewReplace = useCallback(() => {}, []);
   const handleViewReplaceAll = useCallback(() => 0, []);
+
+  // Handle match count updates from MarkdownViewer (actual DOM match count)
+  const handleViewMatchCountChange = useCallback((count: number) => {
+    setViewMatchCount(count);
+    // Adjust current match if it's out of bounds
+    if (count === 0) {
+      setViewCurrentMatch(0);
+    } else {
+      setViewCurrentMatch((prev) => {
+        if (prev === 0) return 1;
+        if (prev > count) return count;
+        return prev;
+      });
+    }
+  }, []);
 
   // Handle search state changes from SplitEditor
   const handleSearchStateChange = useCallback((query: string, options: SearchOptions) => {
@@ -1363,6 +1375,7 @@ const App: React.FC = () => {
                     onScrollChange={handleScrollChange}
                     searchHighlight={viewSearchHighlight}
                     currentMatchIndex={viewCurrentMatch - 1}
+                    onMatchCountChange={handleViewMatchCountChange}
                   />
                 </div>
               )

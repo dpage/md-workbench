@@ -3227,6 +3227,11 @@ body {
   color: var(--text-primary);
 }
 
+/* When search is active (no syntax-highlighting class), text should still be visible */
+.source-editor-highlight:not(.syntax-highlighted) {
+  color: var(--text-primary);
+}
+
 /* Highlight.js syntax highlighting colors - Dark theme */
 [data-theme="dark"] .source-viewer-highlight.syntax-highlighted .hljs-comment,
 [data-theme="dark"] .source-viewer-highlight.syntax-highlighted .hljs-quote,
