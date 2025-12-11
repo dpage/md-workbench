@@ -281,4 +281,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('set-view-mode', listener);
     return () => ipcRenderer.removeListener('set-view-mode', listener);
   },
+
+  onNewFile: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('new-file', listener);
+    return () => ipcRenderer.removeListener('new-file', listener);
+  },
 });

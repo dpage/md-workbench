@@ -356,8 +356,8 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     onContentChange?.(entry.content);
     setPreviewContent(entry.content);
 
-    // Trigger auto-save if enabled
-    if (autoSave && onAutoSave) {
+    // Trigger auto-save if enabled (but not for untitled files)
+    if (autoSave && onAutoSave && filePath) {
       onAutoSave();
     }
 
@@ -367,7 +367,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
       setSelectionStart(entry.selectionStart);
       setSelectionEnd(entry.selectionEnd);
     });
-  }, [editedContent, selectionStart, selectionEnd, onContentChange, autoSave, onAutoSave]);
+  }, [editedContent, selectionStart, selectionEnd, onContentChange, autoSave, onAutoSave, filePath]);
 
   // Redo function
   const handleRedo = useCallback(() => {
@@ -400,8 +400,8 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     onContentChange?.(entry.content);
     setPreviewContent(entry.content);
 
-    // Trigger auto-save if enabled
-    if (autoSave && onAutoSave) {
+    // Trigger auto-save if enabled (but not for untitled files)
+    if (autoSave && onAutoSave && filePath) {
       onAutoSave();
     }
 
@@ -411,7 +411,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
       setSelectionStart(entry.selectionStart);
       setSelectionEnd(entry.selectionEnd);
     });
-  }, [editedContent, selectionStart, selectionEnd, onContentChange, autoSave, onAutoSave]);
+  }, [editedContent, selectionStart, selectionEnd, onContentChange, autoSave, onAutoSave, filePath]);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -570,7 +570,8 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
       previewTimerRef.current = setTimeout(() => {
         setPreviewContent(newContent);
         // Auto-save after the debounce period (same timing as preview update)
-        if (autoSave && onAutoSave) {
+        // But not for untitled files (empty filePath)
+        if (autoSave && onAutoSave && filePath) {
           // Format before save if enabled
           if (formatOnSave && onFormat) {
             onFormat();
@@ -579,7 +580,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
         }
       }, 500);
     },
-    [debouncedParentUpdate, autoSave, onAutoSave, formatOnSave, onFormat]
+    [debouncedParentUpdate, autoSave, onAutoSave, formatOnSave, onFormat, filePath]
   );
 
   // Handle divider drag

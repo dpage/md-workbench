@@ -11,6 +11,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { MarkdownViewMode } from '../../shared/preferences';
 
 interface ToolbarProps {
+  onNewFile?: () => void;
   onOpenFile: () => void;
   onSave?: () => void;
   onSaveAs?: () => void;
@@ -32,6 +33,7 @@ interface ToolbarProps {
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
+  onNewFile,
   onOpenFile,
   onSave,
   onSaveAs,
@@ -292,6 +294,42 @@ const Toolbar: React.FC<ToolbarProps> = ({
       </div>
       <div className="toolbar-actions">
         <div className="toolbar-file-group">
+          <button
+            className="toolbar-button toolbar-button-new"
+            onClick={onNewFile}
+            title="New File (Cmd+N)"
+            aria-label="New File"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M9 2H4C3.44772 2 3 2.44772 3 3V13C3 13.5523 3.44772 14 4 14H12C12.5523 14 13 13.5523 13 13V6L9 2Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M9 2V6H13"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M8 9V12M6.5 10.5H9.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span>New</span>
+          </button>
           <button
             className="toolbar-button toolbar-button-open"
             onClick={onOpenFile}

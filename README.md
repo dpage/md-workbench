@@ -144,6 +144,7 @@ Open preferences with **Cmd+,** (macOS) or **Ctrl+,** (Windows/Linux) to configu
 
 | Action | macOS | Windows/Linux |
 |--------|-------|---------------|
+| New File | Cmd+N | Ctrl+N |
 | Open File | Cmd+O | Ctrl+O |
 | Save | Cmd+S | Ctrl+S |
 | Save As | Cmd+Shift+S | Ctrl+Shift+S |

@@ -158,8 +158,10 @@ const HelpContent: React.FC = () => (
     <section>
       <h2>Editing</h2>
       <ul>
+        <li>Press <kbd>Cmd+N</kbd> / <kbd>Ctrl+N</kbd> to create a new file</li>
         <li>Press <kbd>Cmd+S</kbd> / <kbd>Ctrl+S</kbd> to save</li>
         <li>Press <kbd>Cmd+Shift+S</kbd> / <kbd>Ctrl+Shift+S</kbd> to save as</li>
+        <li>New files prompt for a save location on first save</li>
         <li>Unsaved changes are indicated with a dot on the tab</li>
         <li>You'll be prompted to save when closing a tab with unsaved changes</li>
         <li>Enable auto-save in Preferences to save automatically after typing</li>
@@ -197,6 +199,11 @@ const HelpContent: React.FC = () => (
           </tr>
         </thead>
         <tbody>
+          <tr>
+            <td>New File</td>
+            <td><kbd>Cmd+N</kbd></td>
+            <td><kbd>Ctrl+N</kbd></td>
+          </tr>
           <tr>
             <td>Open File</td>
             <td><kbd>Cmd+O</kbd></td>

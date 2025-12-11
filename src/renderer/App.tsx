@@ -134,6 +134,7 @@ declare global {
       onShowPreferences: (callback: () => void) => () => void;
       onFormatDocument: (callback: () => void) => () => void;
       onSetViewMode: (callback: (mode: MarkdownViewMode) => void) => () => void;
+      onNewFile: (callback: () => void) => () => void;
       // Per-file view mode storage
       getFileViewMode: (filePath: string) => Promise<MarkdownViewMode | null>;
       setFileViewMode: (filePath: string, mode: MarkdownViewMode) => Promise<void>;
@@ -176,6 +177,9 @@ const App: React.FC = () => {
 
   // Ref to track the active editor's textarea for clipboard operations
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Counter for untitled files
+  const untitledCounterRef = useRef(1);
 
   // Use ref to avoid stale closure issues in event handlers
   const tabsRef = useRef<Tab[]>(tabs);
@@ -226,6 +230,34 @@ const App: React.FC = () => {
 
   const handleOpenFolder = useCallback(() => {
     window.electronAPI?.openFolderDialog();
+  }, []);
+
+  // Create a new untitled file
+  const handleNewFile = useCallback(() => {
+    const counter = untitledCounterRef.current++;
+    const fileName = `Untitled-${counter}.md`;
+
+    const newTab: Tab = {
+      id: `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      filePath: '', // Empty indicates untitled file
+      fileName,
+      content: '',
+      fileType: 'markdown',
+      highlightLanguage: 'markdown',
+      supportsRenderedView: true,
+      supportsFormatting: true,
+      viewMode: 'edit', // Start in edit mode
+      isDirty: false,
+    };
+
+    setTabs((prev) => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+
+    // Initialize empty navigation history for new untitled tab
+    navigationHistoryRef.current.set(newTab.id, {
+      entries: [],
+      currentIndex: -1,
+    });
   }, []);
 
   const handleFileOpened = useCallback(async (data: FileData) => {
@@ -480,7 +512,45 @@ const App: React.FC = () => {
     if (!currentTabId) return;
 
     const currentTab = tabsRef.current.find((tab) => tab.id === currentTabId);
-    if (!currentTab || !currentTab.isDirty) return;
+    if (!currentTab) return;
+
+    // For untitled files (empty filePath), use Save As instead
+    if (!currentTab.filePath) {
+      try {
+        const result = await window.electronAPI.saveFileAs({
+          content: currentTab.content,
+        });
+
+        if (result.success && result.filePath && result.fileName) {
+          // Update tab with new file info
+          setTabs((prev) =>
+            prev.map((tab) =>
+              tab.id === currentTabId
+                ? {
+                    ...tab,
+                    filePath: result.filePath!,
+                    fileName: result.fileName!,
+                    isDirty: false,
+                    originalContent: tab.content,
+                  }
+                : tab
+            )
+          );
+
+          // Update navigation history with the new file path
+          navigationHistoryRef.current.set(currentTabId, {
+            entries: [result.filePath],
+            currentIndex: 0,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to save file:', error);
+      }
+      return;
+    }
+
+    // Regular save for existing files
+    if (!currentTab.isDirty) return;
 
     try {
       await window.electronAPI.saveFile({
@@ -558,10 +628,22 @@ const App: React.FC = () => {
       if (result.response === 0) {
         // Save
         try {
-          await window.electronAPI.saveFile({
-            filePath: tab.filePath,
-            content: tab.content,
-          });
+          // For untitled files (empty filePath), use Save As
+          if (!tab.filePath) {
+            const saveResult = await window.electronAPI.saveFileAs({
+              content: tab.content,
+            });
+            if (!saveResult.success) {
+              // User canceled or save failed
+              window.electronAPI?.cancelClose();
+              return;
+            }
+          } else {
+            await window.electronAPI.saveFile({
+              filePath: tab.filePath,
+              content: tab.content,
+            });
+          }
         } catch (error) {
           console.error('Failed to save file:', error);
           // Cancel close on save error
@@ -1084,6 +1166,8 @@ const App: React.FC = () => {
       window.electronAPI?.onFormatDocument(handleFormat);
     const unsubscribeSetViewMode =
       window.electronAPI?.onSetViewMode(handleSetViewMode);
+    const unsubscribeNewFile =
+      window.electronAPI?.onNewFile(handleNewFile);
 
     return () => {
       unsubscribeFileOpened?.();
@@ -1101,6 +1185,7 @@ const App: React.FC = () => {
       unsubscribeShowPreferences?.();
       unsubscribeFormatDocument?.();
       unsubscribeSetViewMode?.();
+      unsubscribeNewFile?.();
     };
   }, [
     handleFileOpened,
@@ -1118,6 +1203,7 @@ const App: React.FC = () => {
     handleShowPreferences,
     handleFormat,
     handleSetViewMode,
+    handleNewFile,
   ]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -1145,6 +1231,7 @@ const App: React.FC = () => {
   return (
     <div className="app" data-theme={theme}>
       <Toolbar
+        onNewFile={handleNewFile}
         onOpenFile={handleOpenFile}
         onSave={handleSave}
         onSaveAs={handleSaveAs}

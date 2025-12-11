@@ -539,6 +539,13 @@ function createMenu(): void {
       label: 'File',
       submenu: [
         {
+          label: 'New File',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => {
+            mainWindow?.webContents.send('new-file');
+          },
+        },
+        {
           label: 'Open File...',
           accelerator: 'CmdOrCtrl+O',
           click: async () => {
