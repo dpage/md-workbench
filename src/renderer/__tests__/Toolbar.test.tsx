@@ -12,6 +12,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import Toolbar from '../components/Toolbar';
 
 describe('Toolbar Component', () => {
+  const mockOnNewFile = jest.fn();
   const mockOnOpenFile = jest.fn();
   const mockOnSave = jest.fn();
   const mockOnSaveAs = jest.fn();
@@ -21,6 +22,7 @@ describe('Toolbar Component', () => {
   const mockOnToggleEditMode = jest.fn();
 
   const defaultProps = {
+    onNewFile: mockOnNewFile,
     onOpenFile: mockOnOpenFile,
     onSave: mockOnSave,
     onSaveAs: mockOnSaveAs,
@@ -45,9 +47,17 @@ describe('Toolbar Component', () => {
 
     expect(screen.getByRole('button', { name: /go back/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /go forward/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /new file/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /open file/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^save$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save as/i })).toBeInTheDocument();
+  });
+
+  it('calls onNewFile when New button is clicked', () => {
+    render(<Toolbar {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /new file/i }));
+    expect(mockOnNewFile).toHaveBeenCalledTimes(1);
   });
 
   it('calls onOpenFile when Open button is clicked', () => {

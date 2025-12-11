@@ -53,13 +53,33 @@ const mockElectronAPI = {
   onFileChanged: jest.fn(() => jest.fn()),
   onCloseCurrentTab: jest.fn(() => jest.fn()),
   onThemeChanged: jest.fn(() => jest.fn()),
-  onRestoreSession: jest.fn(() => jest.fn()),
+  onRestoreSession: jest.fn((callback) => {
+    // Immediately invoke callback with empty session so isRestoring becomes false
+    setTimeout(() => callback({ files: [] }), 0);
+    return jest.fn();
+  }),
   onPreferencesChanged: jest.fn(() => jest.fn()),
   onSaveCurrentFile: jest.fn(() => jest.fn()),
   onSaveCurrentFileAs: jest.fn(() => jest.fn()),
   onCheckUnsavedBeforeClose: jest.fn(() => jest.fn()),
   onFind: jest.fn(() => jest.fn()),
   onFindReplace: jest.fn(() => jest.fn()),
+  onFolderOpened: jest.fn(() => jest.fn()),
+  onFolderClosed: jest.fn(() => jest.fn()),
+  onFolderContentsChanged: jest.fn(() => jest.fn()),
+  onShowPreferences: jest.fn(() => jest.fn()),
+  onFormatDocument: jest.fn(() => jest.fn()),
+  onSetViewMode: jest.fn(() => jest.fn()),
+  onNewFile: jest.fn(() => jest.fn()),
+  openFolderDialog: jest.fn(() => Promise.resolve()),
+  readFolderContents: jest.fn(() => Promise.resolve([])),
+  closeFolder: jest.fn(() => Promise.resolve()),
+  getCurrentFolder: jest.fn(() => Promise.resolve(null)),
+  startWatchingFolder: jest.fn(() => Promise.resolve()),
+  stopWatchingFolder: jest.fn(() => Promise.resolve()),
+  getFileViewMode: jest.fn(() => Promise.resolve(null)),
+  setFileViewMode: jest.fn(() => Promise.resolve()),
+  browseImageFile: jest.fn(() => Promise.resolve({ canceled: true })),
 };
 
 Object.defineProperty(window, 'electronAPI', {
