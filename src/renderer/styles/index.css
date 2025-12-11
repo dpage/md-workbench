@@ -1767,11 +1767,15 @@ body {
 .line-number {
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
   font-size: 0.75rem;
-  line-height: 1.6;
+  line-height: calc(1.6 * 0.875rem); /* Match editor line height for alignment */
   height: calc(1.6 * 0.875rem);
   padding-right: 0.75rem;
   color: var(--text-hint);
   transition: color 0.1s;
+  /* When height is overridden for soft wrap, keep number at top */
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
 }
 
 .line-number.current {
@@ -1781,11 +1785,18 @@ body {
 
 .source-editor-container.with-line-numbers .source-editor,
 .source-editor-container.with-line-numbers .source-editor-highlight {
-  padding-left: 1rem;
+  left: 3.5rem;
+  width: calc(100% - 3.5rem);
+  padding-left: 0.5rem;
 }
 
 .source-editor-container.with-line-numbers .current-line-highlight {
-  left: 3.5rem;
+  left: calc(4rem - 2px);
+}
+
+/* In soft wrap mode, highlight starts at content edge (no line numbers) */
+.current-line-highlight.soft-wrap-mode {
+  left: calc(1.5rem - 2px);
 }
 
 /* Column Ruler - vertical line at max line length */
@@ -1894,6 +1905,25 @@ body {
 
 .source-editor::-webkit-scrollbar-corner {
   background: var(--scrollbar-track);
+}
+
+/* Soft wrap mode - wrap long lines visually */
+.source-editor.soft-wrap,
+.source-editor-highlight.soft-wrap {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar on textarea in soft-wrap mode to match overlay width */
+.source-editor.soft-wrap {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.source-editor.soft-wrap::-webkit-scrollbar {
+  display: none;
 }
 
 /* Tab Dirty Indicator */

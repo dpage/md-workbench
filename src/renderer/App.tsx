@@ -1217,6 +1217,7 @@ const App: React.FC = () => {
                   showColumnRuler={preferences.editor?.showColumnRuler ?? true}
                   showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
                   maxLineLength={preferences.formatting?.maxLineLength ?? 79}
+                  softWrap={preferences.editor?.softWrap ?? false}
                 />
               ) : activeTab.viewMode === 'split' ? (
                 // Split mode - editor + preview
@@ -1246,6 +1247,7 @@ const App: React.FC = () => {
                   showColumnRuler={preferences.editor?.showColumnRuler ?? true}
                   showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
                   maxLineLength={preferences.formatting?.maxLineLength ?? 79}
+                  softWrap={preferences.editor?.softWrap ?? false}
                 />
               ) : (
                 // Preview mode (default)

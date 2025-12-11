@@ -52,8 +52,10 @@ A modern, feature-rich file viewer and editor built with Electron and React, wit
 
 - **Editor Features**
   - Status bar showing file path, cursor position, file type, encoding, and line endings
+  - Line numbers gutter with current line highlight
   - Column ruler at configurable line length
   - Current line highlight
+  - Soft wrap for long lines (wraps visually without affecting saved content)
   - Auto-save with configurable debounce
 
 - **Navigation**
@@ -134,7 +136,7 @@ Open preferences with **Cmd+,** (macOS) or **Ctrl+,** (Windows/Linux) to configu
 
 - **General**: Auto-reload files, auto-save, link behavior
 - **Appearance**: Light, dark, or system theme
-- **Editor**: Status bar, column ruler, current line highlight
+- **Editor**: Line numbers, column ruler, current line highlight, soft wrap
 - **File Types**: Default viewing mode (View or Edit) for each file type
 - **Formatting**: Indent size, tabs/spaces, max line length, format on save, SQL dialect, and more
 

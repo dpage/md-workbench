@@ -93,6 +93,7 @@ interface SplitEditorProps {
   showColumnRuler?: boolean;
   showCurrentLineHighlight?: boolean;
   maxLineLength?: number;
+  softWrap?: boolean;
 }
 
 interface Match {
@@ -134,6 +135,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   showColumnRuler = true,
   showCurrentLineHighlight = true,
   maxLineLength = 79,
+  softWrap = false,
 }) => {
   const [splitRatio, setSplitRatio] = useState(0.5); // 0-1, left panel width ratio
   const [isDragging, setIsDragging] = useState(false);
@@ -172,6 +174,102 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   const lineCount = useMemo(() => {
     return editedContent.split('\n').length;
   }, [editedContent]);
+
+  // Get current line content for wrapped height measurement
+  const currentLineContent = useMemo(() => {
+    const lines = editedContent.split('\n');
+    return lines[currentLineNumber] || '';
+  }, [editedContent, currentLineNumber]);
+
+  // Ref for measuring wrapped line height
+  const lineMeasureRef = useRef<HTMLDivElement>(null);
+
+  // Measured metrics for wrapped lines (top position and height)
+  const [wrappedMetrics, setWrappedMetrics] = useState<{ top: number; height: number } | null>(null);
+
+  // Heights of all lines for soft wrap line numbers gutter
+  const [lineHeights, setLineHeights] = useState<number[] | null>(null);
+
+  // Measure all line heights for the line numbers gutter when soft wrap is enabled
+  useEffect(() => {
+    if (!softWrap || !showLineNumbers) {
+      setLineHeights(null);
+      return;
+    }
+
+    const measureAllHeights = () => {
+      const measureDiv = lineMeasureRef.current;
+      if (!measureDiv) {
+        setLineHeights(null);
+        return;
+      }
+
+      const lines = editedContent.split('\n');
+      const heights: number[] = [];
+
+      for (const line of lines) {
+        measureDiv.textContent = line || '\u200B';
+        heights.push(measureDiv.offsetHeight);
+      }
+
+      setLineHeights(heights);
+    };
+
+    requestAnimationFrame(measureAllHeights);
+  }, [softWrap, showLineNumbers, editedContent, splitRatio]);
+
+  // Measure the current line's position and height when soft wrap is enabled
+  useEffect(() => {
+    if (!softWrap) {
+      setWrappedMetrics(null);
+      return;
+    }
+
+    // Use requestAnimationFrame to ensure DOM is ready
+    const measureMetrics = () => {
+      const measureDiv = lineMeasureRef.current;
+      if (!measureDiv) {
+        setWrappedMetrics(null);
+        return;
+      }
+
+      const lines = editedContent.split('\n');
+
+      // Measure a single line height for reference
+      measureDiv.textContent = 'M';
+      const singleLineHeight = measureDiv.offsetHeight;
+
+      // Calculate character offset where current line starts
+      // This preserves empty lines correctly (unlike join which loses them)
+      let charOffset = 0;
+      for (let i = 0; i < currentLineNumber; i++) {
+        charOffset += lines[i].length + 1; // +1 for newline
+      }
+
+      // Measure cumulative height of all lines BEFORE the current line
+      let topPosition: number;
+      if (charOffset > 0) {
+        // Use actual substring to preserve empty lines
+        // Add placeholder char to ensure trailing newlines render as visual lines
+        measureDiv.textContent = editedContent.substring(0, charOffset) + 'M';
+        // Subtract the placeholder line's height
+        topPosition = measureDiv.offsetHeight - singleLineHeight;
+      } else {
+        topPosition = 0;
+      }
+
+      // Measure height of current line
+      measureDiv.textContent = currentLineContent || '\u200B';
+      const lineHeight = measureDiv.offsetHeight;
+
+      setWrappedMetrics({
+        top: topPosition,
+        height: lineHeight > 0 ? lineHeight : singleLineHeight,
+      });
+    };
+
+    requestAnimationFrame(measureMetrics);
+  }, [softWrap, showLineNumbers, editedContent, currentLineNumber, currentLineContent, splitRatio]);
 
   // Ref for line numbers gutter to sync scrolling
   const lineNumbersRef = useRef<HTMLDivElement>(null);
@@ -458,6 +556,10 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newContent = e.target.value;
       setEditedContent(newContent);
+      // Update selection state immediately to keep cursor position in sync
+      // (prevents highlight jump when deleting/typing)
+      setSelectionStart(e.target.selectionStart);
+      setSelectionEnd(e.target.selectionEnd);
       // Debounce the parent update to prevent App re-render cascade on every keystroke
       debouncedParentUpdate(newContent);
       // Debounce preview update - only update after 500ms of no typing
@@ -573,6 +675,30 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     if (!sourceEl || !renderedEl) return;
 
     isScrollingSyncRef.current = true;
+
+    // When soft wrap is enabled, use simple scroll ratio since line-based calculations
+    // don't work accurately (wrapped lines take more visual space than their line count suggests)
+    if (softWrap) {
+      const sourceMaxScroll = sourceEl.scrollHeight - sourceEl.clientHeight;
+      const previewMaxScroll = renderedEl.scrollHeight - renderedEl.clientHeight;
+      if (source === 'source') {
+        if (sourceMaxScroll > 0) {
+          const scrollRatio = sourceEl.scrollTop / sourceMaxScroll;
+          renderedEl.scrollTop = scrollRatio * previewMaxScroll;
+        }
+      } else {
+        if (previewMaxScroll > 0) {
+          const scrollRatio = renderedEl.scrollTop / previewMaxScroll;
+          sourceEl.scrollTop = scrollRatio * sourceMaxScroll;
+        }
+      }
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          isScrollingSyncRef.current = false;
+        });
+      });
+      return;
+    }
 
     const headings = extractHeadings(editedContent);
     const previewHeadings = getPreviewHeadingPositions(renderedEl);
@@ -766,7 +892,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
         isScrollingSyncRef.current = false;
       });
     });
-  }, [editedContent, getLineHeight, extractHeadings, getPreviewHeadingPositions]);
+  }, [editedContent, getLineHeight, extractHeadings, getPreviewHeadingPositions, softWrap]);
 
   const handleSourceScroll = useCallback(() => {
     syncScroll('source');
@@ -1173,14 +1299,28 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
                 className="line-numbers-gutter"
                 aria-hidden="true"
               >
-                {Array.from({ length: lineCount }, (_, i) => (
-                  <div
-                    key={i}
-                    className={`line-number ${i === currentLineNumber ? 'current' : ''}`}
-                  >
-                    {i + 1}
-                  </div>
-                ))}
+                {softWrap && lineHeights ? (
+                  // Dynamic heights for soft wrap - each line number matches its wrapped content height
+                  lineHeights.map((height, i) => (
+                    <div
+                      key={i}
+                      className={`line-number ${i === currentLineNumber ? 'current' : ''}`}
+                      style={{ height: `${height}px` }}
+                    >
+                      {i + 1}
+                    </div>
+                  ))
+                ) : (
+                  // Standard fixed-height line numbers
+                  Array.from({ length: lineCount }, (_, i) => (
+                    <div
+                      key={i}
+                      className={`line-number ${i === currentLineNumber ? 'current' : ''}`}
+                    >
+                      {i + 1}
+                    </div>
+                  ))
+                )}
               </div>
             )}
             {showColumnRuler && (
@@ -1191,20 +1331,50 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
             )}
             {showCurrentLineHighlight && (
               <div
-                className="current-line-highlight"
+                className={`current-line-highlight ${softWrap && !showLineNumbers ? 'soft-wrap-mode' : ''}`}
+                style={
+                  softWrap && wrappedMetrics
+                    ? {
+                        top: `calc(1.5rem + ${wrappedMetrics.top}px - ${scrollTop}px)`,
+                        height: `${wrappedMetrics.height}px`,
+                      }
+                    : {
+                        top: `calc(1.5rem + ${currentLineNumber} * 1.6 * 0.875rem - ${scrollTop}px)`,
+                      }
+                }
+              />
+            )}
+            {/* Hidden div for measuring wrapped line height - must match editor styling exactly */}
+            {softWrap && (
+              <div
+                ref={lineMeasureRef}
+                aria-hidden="true"
                 style={{
-                  top: `calc(1.5rem + ${currentLineNumber} * 1.6 * 0.875rem - ${scrollTop}px)`,
+                  position: 'absolute',
+                  visibility: 'hidden',
+                  boxSizing: 'border-box',
+                  whiteSpace: 'pre-wrap',
+                  wordWrap: 'break-word',
+                  overflowWrap: 'break-word',
+                  // Width and padding must match the editor's content area
+                  width: showLineNumbers ? 'calc(100% - 3.5rem)' : '100%',
+                  paddingLeft: showLineNumbers ? '0.5rem' : '1.5rem',
+                  paddingRight: '1.5rem',
+                  fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace",
+                  fontSize: '0.875rem',
+                  lineHeight: 1.6,
+                  tabSize: 4,
                 }}
               />
             )}
             <div
               ref={highlightRef}
-              className={`source-editor-highlight ${matches.length === 0 ? 'syntax-highlighted' : ''}`}
+              className={`source-editor-highlight ${matches.length === 0 ? 'syntax-highlighted' : ''} ${softWrap ? 'soft-wrap' : ''}`}
               dangerouslySetInnerHTML={{ __html: highlightedSourceContent }}
             />
             <textarea
               ref={textareaRef}
-              className="source-editor"
+              className={`source-editor ${softWrap ? 'soft-wrap' : ''}`}
               value={editedContent}
               onChange={handleContentChange}
               onKeyDown={handleKeyDown}
@@ -1212,7 +1382,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
               onSelect={handleSelectionChange}
               onClick={handleSelectionChange}
               spellCheck={false}
-              wrap="off"
+              wrap={softWrap ? 'soft' : 'off'}
             />
           </div>
         </div>

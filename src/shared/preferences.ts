@@ -51,6 +51,7 @@ export interface EditorOptions {
   showColumnRuler: boolean;
   showCurrentLineHighlight: boolean;
   showStatusBar: boolean;
+  softWrap: boolean;
 }
 
 export const DEFAULT_EDITOR_OPTIONS: EditorOptions = {
@@ -58,6 +59,7 @@ export const DEFAULT_EDITOR_OPTIONS: EditorOptions = {
   showColumnRuler: true,
   showCurrentLineHighlight: true,
   showStatusBar: true,
+  softWrap: false,
 };
 
 export interface Preferences {

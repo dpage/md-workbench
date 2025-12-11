@@ -257,7 +257,7 @@ const HelpContent: React.FC = () => (
       <ul>
         <li><strong>General</strong> — Auto-reload files, auto-save, link behavior</li>
         <li><strong>Appearance</strong> — Light, dark, or system theme</li>
-        <li><strong>Editor</strong> — Status bar, column ruler, current line highlight</li>
+        <li><strong>Editor</strong> — Line numbers, column ruler, current line highlight, soft wrap</li>
         <li><strong>File Types</strong> — Set default viewing mode (View or Edit) per file type</li>
         <li><strong>Formatting</strong> — Indent size, tabs/spaces, max line length, format on save, SQL dialect</li>
       </ul>

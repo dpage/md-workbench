@@ -347,6 +347,20 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
                   Display a status bar at the bottom showing file path, cursor position, and file information.
                 </p>
               </div>
+
+              <div className="preferences-group">
+                <label className="preferences-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={localPreferences.editor?.softWrap ?? false}
+                    onChange={(e) => handleEditorChange('softWrap', e.target.checked)}
+                  />
+                  <span>Soft wrap long lines</span>
+                </label>
+                <p className="preferences-description">
+                  Visually wrap long lines to fit the editor width without affecting the saved content.
+                </p>
+              </div>
             </div>
           )}
 

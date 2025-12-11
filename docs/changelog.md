@@ -2,6 +2,11 @@
 
 All notable changes to Markdown Workbench will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Soft wrap option**: New editor preference to visually wrap long lines to fit the viewport without affecting saved content. Line numbers align correctly with wrapped content, showing the logical line number at the top of each wrapped block.
+
 ## [1.0.0-alpha.5] - 2025-12-10
 
 ### Fixed
