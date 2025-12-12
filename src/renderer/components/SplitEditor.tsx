@@ -157,6 +157,67 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   const parentUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
 
+  // Count matches in TOC headings (for TOC marker badge)
+  // This counts matches that appear in the rendered TOC (from headings)
+  // Each heading in TOC has both text and an anchor URL, so we count both
+  const tocMatchCount = useMemo(() => {
+    if (matches.length === 0 || !lastSearchQuery) return 0;
+
+    // Extract headings from markdown content
+    const headingRegex = /^(#{1,6})\s+(.+)$/gm;
+    const headings: string[] = [];
+    let headingMatch;
+    while ((headingMatch = headingRegex.exec(editedContent)) !== null) {
+      headings.push(headingMatch[2].trim());
+    }
+
+    if (headings.length === 0) return 0;
+
+    // Build search regex
+    let searchRegex: RegExp;
+    try {
+      if (lastSearchOptions.useRegex) {
+        searchRegex = new RegExp(lastSearchQuery, lastSearchOptions.caseSensitive ? 'g' : 'gi');
+      } else {
+        const escapedQuery = lastSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        searchRegex = new RegExp(escapedQuery, lastSearchOptions.caseSensitive ? 'g' : 'gi');
+      }
+    } catch {
+      return 0;
+    }
+
+    // Count matches in headings (both text and anchor URL)
+    let count = 0;
+    for (const heading of headings) {
+      // Count matches in the heading text
+      searchRegex.lastIndex = 0;
+      let match;
+      while ((match = searchRegex.exec(heading)) !== null) {
+        count++;
+        if (match[0].length === 0) searchRegex.lastIndex++;
+      }
+
+      // Also count matches in the generated anchor URL
+      // The anchor is the heading text converted to lowercase, spaces to hyphens
+      const anchor = heading.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+      searchRegex.lastIndex = 0;
+      while ((match = searchRegex.exec(anchor)) !== null) {
+        count++;
+        if (match[0].length === 0) searchRegex.lastIndex++;
+      }
+    }
+
+    return count;
+  }, [editedContent, matches.length, lastSearchQuery, lastSearchOptions]);
+
+  // Whether current match index is in TOC range (virtual matches at start)
+  const isCurrentMatchInToc = currentMatchIndex < tocMatchCount;
+
+  // Adjusted match index for actual source matches (offset by TOC count)
+  const adjustedSourceMatchIndex = currentMatchIndex >= tocMatchCount
+    ? currentMatchIndex - tocMatchCount
+    : -1;
+
   // Calculate current line number based on cursor position
   const currentLineNumber = useMemo(() => {
     const textBeforeCursor = editedContent.substring(0, selectionStart);
@@ -547,10 +608,10 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     setPreviewContent(content);
   }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Report match index changes to parent
+  // Report match index changes to parent (includes TOC matches in total)
   useEffect(() => {
-    onCurrentMatchChange?.(currentMatchIndex, matches.length);
-  }, [currentMatchIndex, matches.length, onCurrentMatchChange]);
+    onCurrentMatchChange?.(currentMatchIndex, matches.length + tocMatchCount);
+  }, [currentMatchIndex, matches.length, tocMatchCount, onCurrentMatchChange]);
 
   const handleContentChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -667,8 +728,12 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   }, []);
 
   // Synchronized scrolling - syncs by finding nearest heading anchor point
+  // When search is active, skip header-based sync - match navigation handles scrolling
   const syncScroll = useCallback((source: 'source' | 'rendered') => {
     if (isScrollingSyncRef.current) return;
+
+    // Skip header-based sync during search - selectMatch handles both panels
+    if (matches.length > 0 || tocMatchCount > 0) return;
 
     const sourceEl = textareaRef.current;
     const renderedEl = renderedRef.current?.querySelector('.markdown-viewer');
@@ -893,7 +958,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
         isScrollingSyncRef.current = false;
       });
     });
-  }, [editedContent, getLineHeight, extractHeadings, getPreviewHeadingPositions, softWrap]);
+  }, [editedContent, getLineHeight, extractHeadings, getPreviewHeadingPositions, softWrap, matches.length, tocMatchCount]);
 
   const handleSourceScroll = useCallback(() => {
     syncScroll('source');
@@ -1066,35 +1131,77 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
 
   // Scroll to initial match when matches are first found
   useEffect(() => {
-    if (!hasScrolledToInitialMatchRef.current && matches.length > 0 && initialSearchQuery) {
+    const totalMatches = matches.length + tocMatchCount;
+    if (!hasScrolledToInitialMatchRef.current && totalMatches > 0 && initialSearchQuery) {
       hasScrolledToInitialMatchRef.current = true;
       // Use requestAnimationFrame to ensure DOM has updated with highlights
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          const match = matches[currentMatchIndex];
-          if (match) {
-            selectMatch(match);
+          // Only scroll to source match if past TOC range
+          if (currentMatchIndex >= tocMatchCount && matches.length > 0) {
+            const match = matches[currentMatchIndex - tocMatchCount];
+            if (match) {
+              selectMatch(match);
+            }
           }
+          // If in TOC range, no source match to scroll to - TOC is already visible
         });
       });
     }
-  }, [matches, currentMatchIndex, initialSearchQuery, selectMatch]);
+  }, [matches, currentMatchIndex, initialSearchQuery, selectMatch, tocMatchCount]);
 
-  // Navigate between matches
+  // Scroll to TOC marker in source editor
+  const scrollToTocMarker = useCallback(() => {
+    const textarea = textareaRef.current;
+    const highlight = highlightRef.current;
+    if (!textarea) return;
+
+    // Find TOC marker position in content
+    const tocMarkerRegex = /^\s*(\[TOC\]|\[\[toc\]\]|<!-- *toc *-->)\s*$/gim;
+    const match = tocMarkerRegex.exec(editedContent);
+    if (!match) return;
+
+    // Find the actual marker position (not including leading whitespace)
+    const markerStart = match.index + match[0].indexOf(match[1]);
+
+    // Calculate line number for the TOC marker
+    const textBeforeMarker = editedContent.substring(0, markerStart);
+    const lineNumber = textBeforeMarker.split('\n').length - 1;
+
+    // Scroll to show the TOC marker
+    const lineHeight = 22.4; // Default line height
+    const padding = 24;
+    const targetScrollTop = padding + (lineNumber * lineHeight) - (textarea.clientHeight / 2);
+
+    textarea.scrollTop = Math.max(0, targetScrollTop);
+    if (highlight) {
+      highlight.scrollTop = textarea.scrollTop;
+    }
+  }, [editedContent]);
+
+  // Navigate between matches (includes virtual TOC matches at the start)
   const handleNavigate = useCallback(
     (direction: 'next' | 'prev') => {
-      if (matches.length === 0) return;
+      const totalMatches = matches.length + tocMatchCount;
+      if (totalMatches === 0) return;
 
       let newIndex: number;
       if (direction === 'next') {
-        newIndex = (currentMatchIndex + 1) % matches.length;
+        newIndex = (currentMatchIndex + 1) % totalMatches;
       } else {
-        newIndex = (currentMatchIndex - 1 + matches.length) % matches.length;
+        newIndex = (currentMatchIndex - 1 + totalMatches) % totalMatches;
       }
       setCurrentMatchIndex(newIndex);
-      selectMatch(matches[newIndex]);
+
+      // Select actual source match or scroll to TOC marker
+      if (newIndex >= tocMatchCount && matches.length > 0) {
+        selectMatch(matches[newIndex - tocMatchCount]);
+      } else if (tocMatchCount > 0) {
+        // Scroll to TOC marker for virtual TOC matches
+        scrollToTocMarker();
+      }
     },
-    [matches, currentMatchIndex, selectMatch]
+    [matches, currentMatchIndex, selectMatch, tocMatchCount, scrollToTocMarker]
   );
 
   // Replace current match
@@ -1183,17 +1290,62 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   const highlightedSourceContent = useMemo(() => {
     // When search is active, show plain text with search highlights
     // (syntax highlighting + search marks is complex and can break highlighting)
-    if (matches.length > 0) {
+    if (matches.length > 0 || tocMatchCount > 0) {
       const parts: string[] = [];
       let lastEnd = 0;
 
+      // TOC marker regex - matches [TOC], [[toc]], or <!-- toc -->
+      const tocMarkerRegex = /^\s*(\[TOC\]|\[\[toc\]\]|<!-- *toc *-->)\s*$/gim;
+
+      // Helper to process a segment and add TOC markers with badges
+      const processTocMarkers = (segment: string): string => {
+        if (tocMatchCount === 0) return escapeHtml(segment);
+
+        const result: string[] = [];
+        let segmentLastEnd = 0;
+        let tocMatch;
+        tocMarkerRegex.lastIndex = 0;
+
+        while ((tocMatch = tocMarkerRegex.exec(segment)) !== null) {
+          // tocMatch[0] = full match including whitespace, tocMatch[1] = just the TOC marker
+          const fullMatch = tocMatch[0];
+          const tocMarker = tocMatch[1];
+          const markerStartInMatch = fullMatch.indexOf(tocMarker);
+          const markerStart = tocMatch.index + markerStartInMatch;
+          const markerEnd = markerStart + tocMarker.length;
+
+          // Add text before TOC marker (including leading whitespace from the match)
+          if (markerStart > segmentLastEnd) {
+            result.push(escapeHtml(segment.substring(segmentLastEnd, markerStart)));
+          }
+          // Add TOC marker with badge - show current/total if in TOC range
+          const isCurrent = isCurrentMatchInToc;
+          const badgeText = isCurrent
+            ? `${currentMatchIndex + 1}/${tocMatchCount}`
+            : `${tocMatchCount}`;
+          const tocClass = isCurrent ? 'search-toc-match search-toc-match-current' : 'search-toc-match';
+          result.push(`<span class="${tocClass}">${escapeHtml(tocMarker)}<span class="search-toc-badge">${badgeText}</span></span>`);
+          // Continue from after the marker, leaving trailing whitespace for next iteration
+          segmentLastEnd = markerEnd;
+        }
+
+        // Add remaining text after last TOC marker (or all text if no TOC)
+        if (segmentLastEnd < segment.length) {
+          result.push(escapeHtml(segment.substring(segmentLastEnd)));
+        }
+        return result.length > 0 ? result.join('') : escapeHtml(segment);
+      };
+
       matches.forEach((match, index) => {
         if (match.start > lastEnd) {
-          parts.push(escapeHtml(editedContent.substring(lastEnd, match.start)));
+          // Process segment before this match for TOC markers
+          const segment = editedContent.substring(lastEnd, match.start);
+          parts.push(processTocMarkers(segment));
         }
         const matchText = editedContent.substring(match.start, match.end);
+        // Adjust index comparison to account for TOC offset
         const className =
-          index === currentMatchIndex
+          index === adjustedSourceMatchIndex
             ? 'search-highlight search-highlight-current'
             : 'search-highlight';
         parts.push(`<mark class="${className}">${escapeHtml(matchText)}</mark>`);
@@ -1201,7 +1353,9 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
       });
 
       if (lastEnd < editedContent.length) {
-        parts.push(escapeHtml(editedContent.substring(lastEnd)));
+        // Process final segment for TOC markers
+        const segment = editedContent.substring(lastEnd);
+        parts.push(processTocMarkers(segment));
       }
 
       return parts.join('') + '\n';
@@ -1209,7 +1363,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
 
     // No search active - show syntax highlighted content
     return syntaxHighlightedContent + '\n';
-  }, [editedContent, matches, currentMatchIndex, syntaxHighlightedContent]);
+  }, [editedContent, matches, adjustedSourceMatchIndex, syntaxHighlightedContent, tocMatchCount, isCurrentMatchInToc, currentMatchIndex]);
 
   // Sync highlight overlay scroll with textarea
   const syncHighlightScroll = useCallback(() => {
@@ -1233,8 +1387,8 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
           onReplace={handleReplace}
           onReplaceAll={handleReplaceAll}
           onNavigate={handleNavigate}
-          matchCount={matches.length}
-          currentMatch={matches.length > 0 ? currentMatchIndex + 1 : 0}
+          matchCount={matches.length + tocMatchCount}
+          currentMatch={matches.length + tocMatchCount > 0 ? currentMatchIndex + 1 : 0}
           showReplace={showReplace}
           initialQuery={initialSearchQuery}
           initialOptions={initialSearchOptions}

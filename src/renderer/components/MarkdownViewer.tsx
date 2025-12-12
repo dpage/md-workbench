@@ -777,8 +777,10 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
         if (Math.abs(posA - posB) > 100) {
           return posA - posB;
         }
-        if (a.type === 'text' && b.type === 'url') return -1;
-        if (a.type === 'url' && b.type === 'text') return 1;
+        // When positions are close (same link), URL matches come before text matches
+        // This matches the DOM order used in the index-change case
+        if (a.type === 'url' && b.type === 'text') return -1;
+        if (a.type === 'text' && b.type === 'url') return 1;
         return posA - posB;
       });
 
