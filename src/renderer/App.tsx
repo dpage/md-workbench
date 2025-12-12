@@ -1376,6 +1376,7 @@ const App: React.FC = () => {
                     searchHighlight={viewSearchHighlight}
                     currentMatchIndex={viewCurrentMatch - 1}
                     onMatchCountChange={handleViewMatchCountChange}
+                    useLinearNavigation={true}
                   />
                 </div>
               )

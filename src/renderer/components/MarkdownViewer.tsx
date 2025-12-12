@@ -53,6 +53,18 @@ interface MarkdownViewerProps {
   searchHighlight?: SearchHighlightOptions;
   currentMatchIndex?: number;
   onMatchCountChange?: (count: number) => void;
+  // For TOC sync: tells preview if current match is a TOC match
+  isTocMatch?: boolean;
+  // Index within TOC matches only (when isTocMatch is true)
+  tocMatchIndex?: number;
+  // For footnote sync: tells preview if current match is in footnote section
+  isFootnoteMatch?: boolean;
+  // Index within footnote matches only (when isFootnoteMatch is true)
+  footnoteMatchIndex?: number;
+  // Index within non-footnote, non-TOC matches only
+  nonFootnoteMatchIndex?: number;
+  // When true, use simple linear navigation (currentMatchIndex directly) instead of category-based sync
+  useLinearNavigation?: boolean;
 }
 
 // Initialize mermaid with theme detection
@@ -523,6 +535,12 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
   searchHighlight,
   currentMatchIndex = 0,
   onMatchCountChange,
+  isTocMatch = false,
+  tocMatchIndex = 0,
+  isFootnoteMatch = false,
+  footnoteMatchIndex = 0,
+  nonFootnoteMatchIndex = 0,
+  useLinearNavigation = false,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -642,7 +660,11 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
     // Determine if we need to rebuild highlights or just update current
     const needsRebuild = queryChanged || contentChanged;
 
+    // DEBUG: Log branch selection
+    console.log('[Preview] Branch selection - queryChanged:', queryChanged, 'contentChanged:', contentChanged, 'indexChanged:', indexChanged, 'needsRebuild:', needsRebuild);
+
     if (needsRebuild) {
+      console.log('[Preview] >>> ENTERING REBUILD BRANCH <<<');
       // Remove existing highlights
       const existingHighlights = contentEl.querySelectorAll('mark.search-highlight');
       existingHighlights.forEach((mark) => {
@@ -797,6 +819,92 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
         onMatchCountChange(allMatches.length);
       }
 
+      // Find special sections in the preview DOM
+      const footnotesSection = contentEl.querySelector('section.footnotes');
+      const tocSection = contentEl.querySelector('.table-of-contents');
+
+      // Helper to check if an element is inside the footnotes section
+      const isInFootnotesSection = (element: Element | null): boolean => {
+        if (!footnotesSection || !element) return false;
+        return footnotesSection.contains(element);
+      };
+
+      // Helper to check if an element is inside the TOC section
+      const isInTocSection = (element: Element | null): boolean => {
+        if (!tocSection || !element) return false;
+        return tocSection.contains(element);
+      };
+
+      // Separate matches into TOC, content, and footnote categories
+      let tocIdx = 0;
+      let contentIdx = 0;
+      let footnoteIdx = 0;
+      const matchMetadata: Array<{
+        globalIndex: number;
+        category: 'toc' | 'content' | 'footnote';
+        localIndex: number;
+      }> = [];
+
+      allMatches.forEach((match, globalIndex) => {
+        let element: Element | null = null;
+        if (match.type === 'text') {
+          element = match.data.textNode.parentElement;
+        } else {
+          element = match.data.element;
+        }
+
+        if (isInTocSection(element)) {
+          matchMetadata.push({
+            globalIndex,
+            category: 'toc',
+            localIndex: tocIdx++,
+          });
+        } else if (isInFootnotesSection(element)) {
+          matchMetadata.push({
+            globalIndex,
+            category: 'footnote',
+            localIndex: footnoteIdx++,
+          });
+        } else {
+          matchMetadata.push({
+            globalIndex,
+            category: 'content',
+            localIndex: contentIdx++,
+          });
+        }
+      });
+
+      // DEBUG: Log rebuild branch categorization
+      const rebuildTocCount = matchMetadata.filter(m => m.category === 'toc').length;
+      const rebuildContentCount = matchMetadata.filter(m => m.category === 'content').length;
+      const rebuildFnCount = matchMetadata.filter(m => m.category === 'footnote').length;
+      console.log('[Preview REBUILD] Match categories - TOC:', rebuildTocCount, 'content:', rebuildContentCount, 'footnotes:', rebuildFnCount);
+      console.log('[Preview REBUILD] Props - isTocMatch:', isTocMatch, 'tocMatchIndex:', tocMatchIndex, 'isFootnoteMatch:', isFootnoteMatch, 'footnoteMatchIndex:', footnoteMatchIndex, 'nonFootnoteMatchIndex:', nonFootnoteMatchIndex);
+
+      // Determine which match should be highlighted as current
+      const isCurrentMatch = (globalIndex: number): boolean => {
+        // In linear navigation mode, just compare global indices directly
+        if (useLinearNavigation) {
+          return globalIndex === currentMatchIndex;
+        }
+
+        const meta = matchMetadata[globalIndex];
+        if (!meta) return false;
+
+        if (isTocMatch) {
+          // We're on a TOC match - highlight if this is the correct TOC match
+          return meta.category === 'toc' && meta.localIndex === tocMatchIndex;
+        } else if (isFootnoteMatch) {
+          // We're on a footnote match - highlight if this is the correct footnote match
+          const result = meta.category === 'footnote' && meta.localIndex === footnoteMatchIndex;
+          if (result) console.log('[Preview REBUILD] Found current footnote match at globalIndex:', globalIndex);
+          return result;
+        } else {
+          // We're on a content match - highlight if this is the correct content match
+          return meta.category === 'content' && meta.localIndex === nonFootnoteMatchIndex;
+        }
+      };
+
       // Group text matches by text node
       const textNodeMatches = new Map<Text, Array<{ start: number; end: number; text: string; globalIndex: number }>>();
 
@@ -812,7 +920,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
           textNodeMatches.set(match.data.textNode, existing);
         } else {
           // URL match - add class with current indicator if applicable
-          const className = globalIndex === currentMatchIndex
+          const className = isCurrentMatch(globalIndex)
             ? 'search-url-match search-url-match-current'
             : 'search-url-match';
           match.data.element.classList.add(...className.split(' '));
@@ -835,7 +943,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
           }
 
           const mark = document.createElement('mark');
-          mark.className = m.globalIndex === currentMatchIndex
+          mark.className = isCurrentMatch(m.globalIndex)
             ? 'search-highlight search-highlight-current'
             : 'search-highlight';
           mark.textContent = m.text;
@@ -903,6 +1011,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
         }
       });
     } else if (indexChanged) {
+      console.log('[Preview] >>> ENTERING INDEX_CHANGED BRANCH <<<');
       // Only currentMatchIndex changed - just update classes, don't rebuild
       // Remove current class from all highlights
       contentEl.querySelectorAll('mark.search-highlight-current').forEach((mark) => {
@@ -929,13 +1038,85 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
         return 0;
       });
 
-      const currentMatch = allMatches[currentMatchIndex];
-      if (currentMatch) {
-        if (currentMatch.tagName === 'MARK') {
-          currentMatch.classList.add('search-highlight-current');
-        } else {
-          currentMatch.classList.add('search-url-match-current');
+      // Find special sections in the preview DOM
+      const footnotesSection = contentEl.querySelector('section.footnotes');
+      const tocSection = contentEl.querySelector('.table-of-contents');
+
+      // DEBUG: Log what we received
+      console.log('[Preview] isTocMatch:', isTocMatch, 'tocMatchIndex:', tocMatchIndex, 'isFootnoteMatch:', isFootnoteMatch, 'footnoteMatchIndex:', footnoteMatchIndex, 'nonFootnoteMatchIndex:', nonFootnoteMatchIndex);
+      console.log('[Preview] tocSection found:', !!tocSection, 'footnotesSection found:', !!footnotesSection, 'total matches:', allMatches.length);
+
+      // Count matches in each section
+      let debugTocCount = 0;
+      let debugFnCount = 0;
+      allMatches.forEach(m => {
+        if (tocSection && tocSection.contains(m)) debugTocCount++;
+        else if (footnotesSection && footnotesSection.contains(m)) debugFnCount++;
+      });
+      console.log('[Preview] Matches: TOC:', debugTocCount, 'content:', allMatches.length - debugTocCount - debugFnCount, 'footnotes:', debugFnCount);
+
+      // Separate matches into TOC, content, and footnote categories, then find the target
+      let tocIdx = 0;
+      let contentIdx = 0;
+      let footnoteIdx = 0;
+      let targetMatch: Element | null = null;
+
+      // In linear navigation mode, just use currentMatchIndex directly
+      if (useLinearNavigation) {
+        if (currentMatchIndex >= 0 && currentMatchIndex < allMatches.length) {
+          targetMatch = allMatches[currentMatchIndex];
+          console.log('[Preview] Linear navigation: using match at index:', currentMatchIndex);
         }
+      } else {
+        for (const match of allMatches) {
+          const inToc = tocSection ? tocSection.contains(match) : false;
+          const inFootnotes = footnotesSection ? footnotesSection.contains(match) : false;
+
+          if (isTocMatch) {
+            // Looking for a TOC match
+            if (inToc && tocIdx === tocMatchIndex) {
+              targetMatch = match;
+              console.log('[Preview] Found TOC target at idx:', tocIdx);
+              break;
+            }
+            if (inToc) tocIdx++;
+          } else if (isFootnoteMatch) {
+            // Looking for a footnote match
+            console.log('[Preview] Checking match - inFootnotes:', inFootnotes, 'footnoteIdx:', footnoteIdx, 'want:', footnoteMatchIndex, 'text:', match.textContent?.substring(0, 30));
+            if (inFootnotes && footnoteIdx === footnoteMatchIndex) {
+              targetMatch = match;
+              console.log('[Preview] Found footnote target at idx:', footnoteIdx);
+              break;
+            }
+            if (inFootnotes) footnoteIdx++;
+          } else {
+            // Looking for a content match (not in TOC, not in footnotes)
+            if (!inToc && !inFootnotes && contentIdx === nonFootnoteMatchIndex) {
+              targetMatch = match;
+              console.log('[Preview] Found content target at idx:', contentIdx);
+              break;
+            }
+            if (!inToc && !inFootnotes) contentIdx++;
+          }
+        }
+
+        // Log if we didn't find a target when looking for footnotes
+        if (isFootnoteMatch && !targetMatch) {
+          console.log('[Preview] WARNING: Did not find footnote target! footnoteMatchIndex:', footnoteMatchIndex, 'total footnote matches found:', footnoteIdx);
+        }
+      }
+
+      console.log('[Preview] targetMatch found:', !!targetMatch);
+
+      if (targetMatch) {
+        if (targetMatch.tagName === 'MARK') {
+          targetMatch.classList.add('search-highlight-current');
+          console.log('[Preview] Added search-highlight-current to MARK, textContent:', targetMatch.textContent);
+        } else {
+          targetMatch.classList.add('search-url-match-current');
+          console.log('[Preview] Added search-url-match-current to link');
+        }
+        console.log('[Preview] Target element parent:', targetMatch.parentElement?.tagName, targetMatch.parentElement?.className);
       }
 
       // Update collapsed block badges
@@ -979,10 +1160,12 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
 
     // Scroll to current match (for both rebuild and index-only change)
     if (scrollContainer && (needsRebuild || indexChanged)) {
+      console.log('[Preview] Initiating scroll, needsRebuild:', needsRebuild, 'indexChanged:', indexChanged);
       // Small delay to ensure DOM is updated
       requestAnimationFrame(() => {
         const currentHighlight = contentEl.querySelector('mark.search-highlight-current') ||
                                  contentEl.querySelector('a.search-url-match-current');
+        console.log('[Preview] In RAF, currentHighlight found:', !!currentHighlight, currentHighlight?.textContent);
         if (currentHighlight) {
           // Use offsetTop for more reliable positioning
           let offsetTop = 0;
@@ -996,11 +1179,12 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
 
           // Center the match in the viewport
           const targetScrollTop = offsetTop - (scrollContainer.clientHeight / 2) + (currentHighlight.clientHeight / 2);
+          console.log('[Preview] Scrolling to offsetTop:', offsetTop, 'targetScrollTop:', targetScrollTop);
           scrollContainer.scrollTop = Math.max(0, targetScrollTop);
         }
       });
     }
-  }, [searchHighlight, content, currentMatchIndex, onMatchCountChange]);
+  }, [searchHighlight, content, currentMatchIndex, onMatchCountChange, isTocMatch, tocMatchIndex, isFootnoteMatch, footnoteMatchIndex, nonFootnoteMatchIndex, useLinearNavigation]);
 
   // Create components with access to filePath
   const components = useMemo(

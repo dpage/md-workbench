@@ -160,8 +160,9 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   // Count matches in TOC headings (for TOC marker badge)
   // This counts matches that appear in the rendered TOC (from headings)
   // Each heading in TOC has both text and an anchor URL, so we count both
+  // Only relevant when there's a rendered view to show the TOC
   const tocMatchCount = useMemo(() => {
-    if (matches.length === 0 || !lastSearchQuery) return 0;
+    if (!supportsRenderedView || matches.length === 0 || !lastSearchQuery) return 0;
 
     // Extract headings from markdown content
     const headingRegex = /^(#{1,6})\s+(.+)$/gm;
@@ -209,15 +210,110 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     }
 
     return count;
-  }, [editedContent, matches.length, lastSearchQuery, lastSearchOptions]);
+  }, [supportsRenderedView, editedContent, matches.length, lastSearchQuery, lastSearchOptions]);
+
+  // Track which matches are in footnote definitions (for preview sync)
+  // Navigation stays in source order - editor is linear, preview jumps to footnotes
+  const { isFootnoteMatchArray, footnoteMatchCount, nonFootnoteMatchCount } = useMemo(() => {
+    if (matches.length === 0) {
+      return { isFootnoteMatchArray: [], footnoteMatchCount: 0, nonFootnoteMatchCount: 0 };
+    }
+
+    // Find all footnote definition ranges in the content
+    const footnoteRanges: Array<{ start: number; end: number }> = [];
+    const lines = editedContent.split('\n');
+    let charOffset = 0;
+    let inFootnote = false;
+    let footnoteStart = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineStart = charOffset;
+
+      // Check if this line starts a footnote definition
+      const isFootnoteDefStart = /^\[\^[^\]]+\]:/.test(line);
+
+      if (isFootnoteDefStart) {
+        if (inFootnote) {
+          footnoteRanges.push({ start: footnoteStart, end: lineStart - 1 });
+        }
+        inFootnote = true;
+        footnoteStart = lineStart;
+      } else if (inFootnote) {
+        const isContinuation = line === '' || /^[ \t]/.test(line);
+        if (!isContinuation && line.trim() !== '') {
+          footnoteRanges.push({ start: footnoteStart, end: lineStart - 1 });
+          inFootnote = false;
+        }
+      }
+
+      charOffset += line.length + 1;
+    }
+
+    if (inFootnote) {
+      footnoteRanges.push({ start: footnoteStart, end: charOffset - 1 });
+    }
+
+    // For each match, track if it's in a footnote definition
+    const isFootnoteArray: boolean[] = [];
+    let fnCount = 0;
+    let nonFnCount = 0;
+
+    matches.forEach((match) => {
+      const inFn = footnoteRanges.some(
+        range => match.start >= range.start && match.end <= range.end
+      );
+      isFootnoteArray.push(inFn);
+      if (inFn) fnCount++;
+      else nonFnCount++;
+    });
+
+    return {
+      isFootnoteMatchArray: isFootnoteArray,
+      footnoteMatchCount: fnCount,
+      nonFootnoteMatchCount: nonFnCount
+    };
+  }, [matches, editedContent]);
 
   // Whether current match index is in TOC range (virtual matches at start)
   const isCurrentMatchInToc = currentMatchIndex < tocMatchCount;
 
-  // Adjusted match index for actual source matches (offset by TOC count)
-  const adjustedSourceMatchIndex = currentMatchIndex >= tocMatchCount
+  // Physical match index in source (after TOC offset)
+  const physicalMatchIndex = currentMatchIndex >= tocMatchCount
     ? currentMatchIndex - tocMatchCount
     : -1;
+
+  // Whether current match is in a footnote definition (check the array)
+  const isCurrentMatchInFootnote = physicalMatchIndex >= 0 &&
+    physicalMatchIndex < isFootnoteMatchArray.length &&
+    isFootnoteMatchArray[physicalMatchIndex];
+
+  // Calculate which footnote match number this is (for preview sync)
+  const currentFootnoteMatchIndex = useMemo(() => {
+    if (!isCurrentMatchInFootnote || physicalMatchIndex < 0) return 0;
+    // Count how many footnote matches come before this one
+    let count = 0;
+    for (let i = 0; i < physicalMatchIndex; i++) {
+      if (isFootnoteMatchArray[i]) count++;
+    }
+    return count;
+  }, [isCurrentMatchInFootnote, physicalMatchIndex, isFootnoteMatchArray]);
+
+  // Calculate which non-footnote match number this is (for preview sync)
+  const currentNonFootnoteMatchIndex = useMemo(() => {
+    if (isCurrentMatchInFootnote || physicalMatchIndex < 0) return 0;
+    // Count how many non-footnote matches come before this one
+    let count = 0;
+    for (let i = 0; i < physicalMatchIndex; i++) {
+      if (!isFootnoteMatchArray[i]) count++;
+    }
+    return count;
+  }, [isCurrentMatchInFootnote, physicalMatchIndex, isFootnoteMatchArray]);
+
+  // DEBUG: Log match classification
+  console.log('[Editor] currentMatchIndex:', currentMatchIndex, 'tocMatchCount:', tocMatchCount, 'physicalMatchIndex:', physicalMatchIndex);
+  console.log('[Editor] isCurrentMatchInToc:', isCurrentMatchInToc, 'isCurrentMatchInFootnote:', isCurrentMatchInFootnote);
+  console.log('[Editor->Preview] footnoteMatchIndex:', currentFootnoteMatchIndex, 'nonFootnoteMatchIndex:', currentNonFootnoteMatchIndex);
 
   // Calculate current line number based on cursor position
   const currentLineNumber = useMemo(() => {
@@ -1140,9 +1236,9 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
         requestAnimationFrame(() => {
           // Only scroll to source match if past TOC range
           if (currentMatchIndex >= tocMatchCount && matches.length > 0) {
-            const match = matches[currentMatchIndex - tocMatchCount];
-            if (match) {
-              selectMatch(match);
+            const sourceIndex = currentMatchIndex - tocMatchCount;
+            if (sourceIndex >= 0 && sourceIndex < matches.length) {
+              selectMatch(matches[sourceIndex]);
             }
           }
           // If in TOC range, no source match to scroll to - TOC is already visible
@@ -1180,7 +1276,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
     }
   }, [editedContent]);
 
-  // Navigate between matches (includes virtual TOC matches at the start)
+  // Navigate between matches (includes virtual TOC matches at the start, footnotes at the end)
   const handleNavigate = useCallback(
     (direction: 'next' | 'prev') => {
       const totalMatches = matches.length + tocMatchCount;
@@ -1196,7 +1292,11 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
 
       // Select actual source match or scroll to TOC marker
       if (newIndex >= tocMatchCount && matches.length > 0) {
-        selectMatch(matches[newIndex - tocMatchCount]);
+        // Direct index - navigation is linear in source order
+        const sourceIndex = newIndex - tocMatchCount;
+        if (sourceIndex >= 0 && sourceIndex < matches.length) {
+          selectMatch(matches[sourceIndex]);
+        }
       } else if (tocMatchCount > 0) {
         // Scroll to TOC marker for virtual TOC matches
         scrollToTocMarker();
@@ -1209,8 +1309,12 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   const handleReplace = useCallback(
     (replacement: string) => {
       if (matches.length === 0) return;
+      if (currentMatchIndex < tocMatchCount) return; // Can't replace TOC matches
 
-      const match = matches[currentMatchIndex];
+      const sourceIndex = currentMatchIndex - tocMatchCount;
+      if (sourceIndex < 0 || sourceIndex >= matches.length) return;
+
+      const match = matches[sourceIndex];
       const newContent =
         editedContent.substring(0, match.start) +
         replacement +
@@ -1224,7 +1328,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
         handleSearch(lastSearchQuery, lastSearchOptions);
       }, 0);
     },
-    [matches, currentMatchIndex, editedContent, onContentChange, handleSearch, lastSearchQuery, lastSearchOptions]
+    [matches, currentMatchIndex, editedContent, onContentChange, handleSearch, lastSearchQuery, lastSearchOptions, tocMatchCount]
   );
 
   // Replace all matches
@@ -1346,7 +1450,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
         const matchText = editedContent.substring(match.start, match.end);
         // Adjust index comparison to account for TOC offset
         const className =
-          index === adjustedSourceMatchIndex
+          index === physicalMatchIndex
             ? 'search-highlight search-highlight-current'
             : 'search-highlight';
         parts.push(`<mark class="${className}">${escapeHtml(matchText)}</mark>`);
@@ -1364,7 +1468,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
 
     // No search active - show syntax highlighted content
     return syntaxHighlightedContent + '\n';
-  }, [editedContent, matches, adjustedSourceMatchIndex, syntaxHighlightedContent, tocMatchCount, isCurrentMatchInToc, currentMatchIndex]);
+  }, [editedContent, matches, physicalMatchIndex, syntaxHighlightedContent, tocMatchCount, isCurrentMatchInToc, currentMatchIndex]);
 
   // Sync highlight overlay scroll with textarea
   const syncHighlightScroll = useCallback(() => {
@@ -1566,6 +1670,11 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
                 filePath={filePath}
                 searchHighlight={searchHighlight}
                 currentMatchIndex={currentMatchIndex}
+                isTocMatch={isCurrentMatchInToc}
+                tocMatchIndex={isCurrentMatchInToc ? currentMatchIndex : 0}
+                isFootnoteMatch={isCurrentMatchInFootnote}
+                footnoteMatchIndex={currentFootnoteMatchIndex}
+                nonFootnoteMatchIndex={currentNonFootnoteMatchIndex}
               />
             </div>
           </>
