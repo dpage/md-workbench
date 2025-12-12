@@ -321,11 +321,6 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     return count;
   }, [isCurrentMatchInFootnote, physicalMatchIndex, isFootnoteMatchArray]);
 
-  // DEBUG: Log match classification
-  console.log('[Editor] currentMatchIndex:', currentMatchIndex, 'tocMatchCount:', tocMatchCount, 'physicalMatchIndex:', physicalMatchIndex);
-  console.log('[Editor] isCurrentMatchInToc:', isCurrentMatchInToc, 'isCurrentMatchInFootnote:', isCurrentMatchInFootnote);
-  console.log('[Editor->Preview] footnoteMatchIndex:', currentFootnoteMatchIndex, 'nonFootnoteMatchIndex:', currentNonFootnoteMatchIndex);
-
   // Calculate current line number based on cursor position
   const currentLineNumber = useMemo(() => {
     const textBeforeCursor = editedContent.substring(0, selectionStart);
@@ -854,7 +849,8 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef<HTMLDivElement>(null);
-  const isScrollingSyncRef = useRef(false);
+  // Track which panel was just programmatically scrolled (to ignore its resulting scroll event)
+  const programmaticScrollTargetRef = useRef<'source' | 'rendered' | null>(null);
 
   // Expose focus method to parent
   useImperativeHandle(ref, () => ({
@@ -1009,54 +1005,52 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
   // Synchronized scrolling - syncs by finding nearest heading anchor point
   // When search is active, skip header-based sync - match navigation handles scrolling
   const syncScroll = useCallback((source: 'source' | 'rendered') => {
-    if (isScrollingSyncRef.current) return;
+    // Skip if this scroll event came from a panel we just programmatically scrolled
+    // (prevents infinite loops where A scrolls B which scrolls A which scrolls B...)
+    if (programmaticScrollTargetRef.current === source) {
+      programmaticScrollTargetRef.current = null; // Clear immediately when we skip
+      return;
+    }
 
     // Skip header-based sync during search - selectMatch handles both panels
-    if (matches.length > 0 || tocMatchCount > 0) return;
+    if (matches.length > 0 || tocMatchCount > 0) {
+      return;
+    }
 
     const sourceEl = textareaRef.current;
     const renderedEl = renderedRef.current?.querySelector('.markdown-viewer');
 
-    if (!sourceEl || !renderedEl) return;
-
-    isScrollingSyncRef.current = true;
-
-    // When soft wrap is enabled, use simple scroll ratio since line-based calculations
-    // don't work accurately (wrapped lines take more visual space than their line count suggests)
-    if (softWrap) {
-      const sourceMaxScroll = sourceEl.scrollHeight - sourceEl.clientHeight;
-      const previewMaxScroll = renderedEl.scrollHeight - renderedEl.clientHeight;
-      if (source === 'source') {
-        if (sourceMaxScroll > 0) {
-          const scrollRatio = sourceEl.scrollTop / sourceMaxScroll;
-          renderedEl.scrollTop = scrollRatio * previewMaxScroll;
-        }
-      } else {
-        if (previewMaxScroll > 0) {
-          const scrollRatio = renderedEl.scrollTop / previewMaxScroll;
-          sourceEl.scrollTop = scrollRatio * sourceMaxScroll;
-        }
-      }
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          isScrollingSyncRef.current = false;
-        });
-      });
+    if (!sourceEl || !renderedEl) {
       return;
     }
+
+    // Mark which panel we're about to scroll programmatically
+    // (so we can ignore its resulting scroll event)
+    const target = source === 'source' ? 'rendered' : 'source';
+    programmaticScrollTargetRef.current = target;
 
     const headings = extractHeadings(editedContent);
     const previewHeadings = getPreviewHeadingPositions(renderedEl);
 
     if (source === 'source') {
       // Scrolling from source editor to preview
-      const lineHeight = getLineHeight();
-      const padding = 24; // 1.5rem padding
+      const sourceMaxScroll = sourceEl.scrollHeight - sourceEl.clientHeight;
+      const previewMaxScroll = renderedEl.scrollHeight - renderedEl.clientHeight;
 
-      // Calculate which line is at the center of the visible editor
-      const visibleTop = sourceEl.scrollTop;
-      const visibleCenter = visibleTop + sourceEl.clientHeight / 2;
-      const centerLineIndex = Math.floor((visibleCenter - padding) / lineHeight);
+      // Calculate center position - use scroll ratio for soft wrap, line-based for normal
+      let centerLineIndex: number;
+      if (softWrap) {
+        // With soft wrap, use scroll ratio to estimate position in document
+        const scrollRatio = sourceMaxScroll > 0 ? sourceEl.scrollTop / sourceMaxScroll : 0;
+        const totalLines = editedContent.split('\n').length;
+        centerLineIndex = Math.floor(scrollRatio * totalLines);
+      } else {
+        const lineHeight = getLineHeight();
+        const padding = 24; // 1.5rem padding
+        const visibleTop = sourceEl.scrollTop;
+        const visibleCenter = visibleTop + sourceEl.clientHeight / 2;
+        centerLineIndex = Math.floor((visibleCenter - padding) / lineHeight);
+      }
 
       // If no headings, fall back to ratio-based sync
       if (headings.length === 0 || previewHeadings.length === 0) {
@@ -1064,14 +1058,13 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
         const totalLines = lines.length;
         if (totalLines > 1) {
           const lineFraction = Math.max(0, Math.min(1, centerLineIndex / (totalLines - 1)));
-          const previewMaxScroll = renderedEl.scrollHeight - renderedEl.clientHeight;
           const targetScrollCenter = lineFraction * renderedEl.scrollHeight;
           const targetScrollTop = targetScrollCenter - renderedEl.clientHeight / 2;
           renderedEl.scrollTop = Math.max(0, Math.min(previewMaxScroll, targetScrollTop));
         }
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            isScrollingSyncRef.current = false;
+            programmaticScrollTargetRef.current = null;
           });
         });
         return;
@@ -1117,8 +1110,10 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
         } else if (beforePreview) {
           // Only have before heading - estimate based on lines after it
           const linesAfterHeading = centerLineIndex - beforeHeading.lineIndex;
-          const estimatedOffset = linesAfterHeading * lineHeight * 0.5; // Rough estimate
-          targetScrollTop = beforePreview.top + estimatedOffset - renderedEl.clientHeight / 2;
+          const totalLines = editedContent.split('\n').length;
+          const lineProgress = linesAfterHeading / Math.max(1, totalLines - beforeHeading.lineIndex);
+          const remainingPreview = renderedEl.scrollHeight - beforePreview.top;
+          targetScrollTop = beforePreview.top + (lineProgress * remainingPreview) - renderedEl.clientHeight / 2;
         } else {
           // Fall back to ratio
           const lines = editedContent.split('\n');
@@ -1157,7 +1152,6 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
         targetScrollTop = lineFraction * renderedEl.scrollHeight - renderedEl.clientHeight / 2;
       }
 
-      const previewMaxScroll = renderedEl.scrollHeight - renderedEl.clientHeight;
       renderedEl.scrollTop = Math.max(0, Math.min(previewMaxScroll, targetScrollTop));
     } else {
       // Scrolling from preview to source editor - use reverse logic
@@ -1225,16 +1219,24 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
         targetLineIndex = previewFraction * (editedContent.split('\n').length - 1);
       }
 
-      const targetScrollCenter = padding + (targetLineIndex * lineHeight);
       const sourceMaxScroll = sourceEl.scrollHeight - sourceEl.clientHeight;
-      const targetScrollTop = targetScrollCenter - sourceEl.clientHeight / 2;
+      let targetScrollTop: number;
+      if (softWrap) {
+        // With soft wrap, use line ratio to calculate scroll position
+        const totalLines = editedContent.split('\n').length;
+        const lineRatio = targetLineIndex / Math.max(1, totalLines - 1);
+        targetScrollTop = lineRatio * sourceMaxScroll;
+      } else {
+        const targetScrollCenter = padding + (targetLineIndex * lineHeight);
+        targetScrollTop = targetScrollCenter - sourceEl.clientHeight / 2;
+      }
       sourceEl.scrollTop = Math.max(0, Math.min(sourceMaxScroll, targetScrollTop));
     }
 
     // Reset flag after a short delay to allow the scroll event to settle
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        isScrollingSyncRef.current = false;
+        programmaticScrollTargetRef.current = null;
       });
     });
   }, [editedContent, getLineHeight, extractHeadings, getPreviewHeadingPositions, softWrap, matches.length, tocMatchCount]);
@@ -1345,8 +1347,8 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     const renderedPanel = renderedRef.current;
     if (!textarea) return;
 
-    // Prevent scroll sync from interfering while we position both panels
-    isScrollingSyncRef.current = true;
+    // Note: During search, syncScroll already returns early (matches.length > 0 check)
+    // so scroll sync won't interfere with our manual positioning of both panels
 
     textarea.focus();
     textarea.setSelectionRange(match.start, match.end);
@@ -1400,12 +1402,6 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
         }
       }, 50);
     });
-
-    // Re-enable scroll sync after a longer delay to allow all scroll events to settle
-    // (MarkdownViewer may also trigger scrollIntoView with smooth animation)
-    setTimeout(() => {
-      isScrollingSyncRef.current = false;
-    }, 500);
   }, []);
 
   // Scroll to initial match when matches are first found

@@ -660,11 +660,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
     // Determine if we need to rebuild highlights or just update current
     const needsRebuild = queryChanged || contentChanged;
 
-    // DEBUG: Log branch selection
-    console.log('[Preview] Branch selection - queryChanged:', queryChanged, 'contentChanged:', contentChanged, 'indexChanged:', indexChanged, 'needsRebuild:', needsRebuild);
-
     if (needsRebuild) {
-      console.log('[Preview] >>> ENTERING REBUILD BRANCH <<<');
       // Remove existing highlights
       const existingHighlights = contentEl.querySelectorAll('mark.search-highlight');
       existingHighlights.forEach((mark) => {
@@ -874,13 +870,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
         }
       });
 
-      // DEBUG: Log rebuild branch categorization
-      const rebuildTocCount = matchMetadata.filter(m => m.category === 'toc').length;
-      const rebuildContentCount = matchMetadata.filter(m => m.category === 'content').length;
-      const rebuildFnCount = matchMetadata.filter(m => m.category === 'footnote').length;
-      console.log('[Preview REBUILD] Match categories - TOC:', rebuildTocCount, 'content:', rebuildContentCount, 'footnotes:', rebuildFnCount);
-      console.log('[Preview REBUILD] Props - isTocMatch:', isTocMatch, 'tocMatchIndex:', tocMatchIndex, 'isFootnoteMatch:', isFootnoteMatch, 'footnoteMatchIndex:', footnoteMatchIndex, 'nonFootnoteMatchIndex:', nonFootnoteMatchIndex);
-
       // Determine which match should be highlighted as current
       const isCurrentMatch = (globalIndex: number): boolean => {
         // In linear navigation mode, just compare global indices directly
@@ -896,9 +885,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
           return meta.category === 'toc' && meta.localIndex === tocMatchIndex;
         } else if (isFootnoteMatch) {
           // We're on a footnote match - highlight if this is the correct footnote match
-          const result = meta.category === 'footnote' && meta.localIndex === footnoteMatchIndex;
-          if (result) console.log('[Preview REBUILD] Found current footnote match at globalIndex:', globalIndex);
-          return result;
+          return meta.category === 'footnote' && meta.localIndex === footnoteMatchIndex;
         } else {
           // We're on a content match - highlight if this is the correct content match
           return meta.category === 'content' && meta.localIndex === nonFootnoteMatchIndex;
@@ -1011,7 +998,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
         }
       });
     } else if (indexChanged) {
-      console.log('[Preview] >>> ENTERING INDEX_CHANGED BRANCH <<<');
       // Only currentMatchIndex changed - just update classes, don't rebuild
       // Remove current class from all highlights
       contentEl.querySelectorAll('mark.search-highlight-current').forEach((mark) => {
@@ -1042,19 +1028,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
       const footnotesSection = contentEl.querySelector('section.footnotes');
       const tocSection = contentEl.querySelector('.table-of-contents');
 
-      // DEBUG: Log what we received
-      console.log('[Preview] isTocMatch:', isTocMatch, 'tocMatchIndex:', tocMatchIndex, 'isFootnoteMatch:', isFootnoteMatch, 'footnoteMatchIndex:', footnoteMatchIndex, 'nonFootnoteMatchIndex:', nonFootnoteMatchIndex);
-      console.log('[Preview] tocSection found:', !!tocSection, 'footnotesSection found:', !!footnotesSection, 'total matches:', allMatches.length);
-
-      // Count matches in each section
-      let debugTocCount = 0;
-      let debugFnCount = 0;
-      allMatches.forEach(m => {
-        if (tocSection && tocSection.contains(m)) debugTocCount++;
-        else if (footnotesSection && footnotesSection.contains(m)) debugFnCount++;
-      });
-      console.log('[Preview] Matches: TOC:', debugTocCount, 'content:', allMatches.length - debugTocCount - debugFnCount, 'footnotes:', debugFnCount);
-
       // Separate matches into TOC, content, and footnote categories, then find the target
       let tocIdx = 0;
       let contentIdx = 0;
@@ -1065,7 +1038,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
       if (useLinearNavigation) {
         if (currentMatchIndex >= 0 && currentMatchIndex < allMatches.length) {
           targetMatch = allMatches[currentMatchIndex];
-          console.log('[Preview] Linear navigation: using match at index:', currentMatchIndex);
         }
       } else {
         for (const match of allMatches) {
@@ -1076,16 +1048,13 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
             // Looking for a TOC match
             if (inToc && tocIdx === tocMatchIndex) {
               targetMatch = match;
-              console.log('[Preview] Found TOC target at idx:', tocIdx);
               break;
             }
             if (inToc) tocIdx++;
           } else if (isFootnoteMatch) {
             // Looking for a footnote match
-            console.log('[Preview] Checking match - inFootnotes:', inFootnotes, 'footnoteIdx:', footnoteIdx, 'want:', footnoteMatchIndex, 'text:', match.textContent?.substring(0, 30));
             if (inFootnotes && footnoteIdx === footnoteMatchIndex) {
               targetMatch = match;
-              console.log('[Preview] Found footnote target at idx:', footnoteIdx);
               break;
             }
             if (inFootnotes) footnoteIdx++;
@@ -1093,30 +1062,19 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
             // Looking for a content match (not in TOC, not in footnotes)
             if (!inToc && !inFootnotes && contentIdx === nonFootnoteMatchIndex) {
               targetMatch = match;
-              console.log('[Preview] Found content target at idx:', contentIdx);
               break;
             }
             if (!inToc && !inFootnotes) contentIdx++;
           }
         }
-
-        // Log if we didn't find a target when looking for footnotes
-        if (isFootnoteMatch && !targetMatch) {
-          console.log('[Preview] WARNING: Did not find footnote target! footnoteMatchIndex:', footnoteMatchIndex, 'total footnote matches found:', footnoteIdx);
-        }
       }
-
-      console.log('[Preview] targetMatch found:', !!targetMatch);
 
       if (targetMatch) {
         if (targetMatch.tagName === 'MARK') {
           targetMatch.classList.add('search-highlight-current');
-          console.log('[Preview] Added search-highlight-current to MARK, textContent:', targetMatch.textContent);
         } else {
           targetMatch.classList.add('search-url-match-current');
-          console.log('[Preview] Added search-url-match-current to link');
         }
-        console.log('[Preview] Target element parent:', targetMatch.parentElement?.tagName, targetMatch.parentElement?.className);
       }
 
       // Update collapsed block badges
@@ -1160,12 +1118,10 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
 
     // Scroll to current match (for both rebuild and index-only change)
     if (scrollContainer && (needsRebuild || indexChanged)) {
-      console.log('[Preview] Initiating scroll, needsRebuild:', needsRebuild, 'indexChanged:', indexChanged);
       // Small delay to ensure DOM is updated
       requestAnimationFrame(() => {
         const currentHighlight = contentEl.querySelector('mark.search-highlight-current') ||
                                  contentEl.querySelector('a.search-url-match-current');
-        console.log('[Preview] In RAF, currentHighlight found:', !!currentHighlight, currentHighlight?.textContent);
         if (currentHighlight) {
           // Use offsetTop for more reliable positioning
           let offsetTop = 0;
@@ -1179,7 +1135,6 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
 
           // Center the match in the viewport
           const targetScrollTop = offsetTop - (scrollContainer.clientHeight / 2) + (currentHighlight.clientHeight / 2);
-          console.log('[Preview] Scrolling to offsetTop:', offsetTop, 'targetScrollTop:', targetScrollTop);
           scrollContainer.scrollTop = Math.max(0, targetScrollTop);
         }
       });
