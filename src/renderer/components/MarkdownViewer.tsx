@@ -659,6 +659,14 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
         link.classList.remove('search-url-match', 'search-url-match-current');
       });
 
+      // Remove collapsed match indicators
+      contentEl.querySelectorAll('.search-collapsed-match').forEach((details) => {
+        details.classList.remove('search-collapsed-match', 'search-collapsed-match-current');
+      });
+      contentEl.querySelectorAll('.search-collapsed-badge').forEach((badge) => {
+        badge.remove();
+      });
+
       if (!currentQuery) {
         if (onMatchCountChange) {
           onMatchCountChange(0);
@@ -842,6 +850,58 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
 
         textNode.parentNode?.replaceChild(fragment, textNode);
       });
+
+      // Highlight collapsed <details> elements that contain matches
+      contentEl.querySelectorAll('details').forEach((details) => {
+        const hasMatch = details.querySelector('mark.search-highlight') ||
+                         details.querySelector('a.search-url-match');
+        if (hasMatch && !details.hasAttribute('open')) {
+          details.classList.add('search-collapsed-match');
+
+          // Get all matches inside this collapsed section in DOM order
+          const matchesInDetails: Element[] = [];
+          details.querySelectorAll('mark.search-highlight').forEach(el => matchesInDetails.push(el));
+          details.querySelectorAll('a.search-url-match').forEach(el => matchesInDetails.push(el));
+          matchesInDetails.sort((a, b) => {
+            const position = a.compareDocumentPosition(b);
+            if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+            if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+            return 0;
+          });
+
+          const matchCount = matchesInDetails.length;
+
+          // Check if current match is in this collapsed block
+          const currentInBlock = details.querySelector('mark.search-highlight-current') ||
+                                details.querySelector('a.search-url-match-current');
+
+          // Add badge to summary if it exists
+          const summary = details.querySelector('summary');
+          if (summary) {
+            // Remove existing badge first
+            const existingBadge = summary.querySelector('.search-collapsed-badge');
+            if (existingBadge) existingBadge.remove();
+
+            const badge = document.createElement('span');
+            badge.className = 'search-collapsed-badge';
+
+            if (currentInBlock) {
+              // Find which index within this block
+              const currentIndex = matchesInDetails.findIndex(el =>
+                el.classList.contains('search-highlight-current') ||
+                el.classList.contains('search-url-match-current')
+              );
+              badge.textContent = `${currentIndex + 1}/${matchCount}`;
+              details.classList.add('search-collapsed-match-current');
+            } else {
+              badge.textContent = `${matchCount}`;
+              details.classList.remove('search-collapsed-match-current');
+            }
+
+            summary.appendChild(badge);
+          }
+        }
+      });
     } else if (indexChanged) {
       // Only currentMatchIndex changed - just update classes, don't rebuild
       // Remove current class from all highlights
@@ -877,6 +937,44 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
           currentMatch.classList.add('search-url-match-current');
         }
       }
+
+      // Update collapsed block badges
+      contentEl.querySelectorAll('details.search-collapsed-match').forEach((details) => {
+        // Get all matches inside this collapsed section in DOM order
+        const matchesInDetails: Element[] = [];
+        details.querySelectorAll('mark.search-highlight').forEach(el => matchesInDetails.push(el));
+        details.querySelectorAll('a.search-url-match').forEach(el => matchesInDetails.push(el));
+        matchesInDetails.sort((a, b) => {
+          const position = a.compareDocumentPosition(b);
+          if (position & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+          if (position & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+          return 0;
+        });
+
+        const matchCount = matchesInDetails.length;
+
+        // Check if current match is in this collapsed block
+        const currentInBlock = details.querySelector('mark.search-highlight-current') ||
+                              details.querySelector('a.search-url-match-current');
+
+        const summary = details.querySelector('summary');
+        if (summary) {
+          const badge = summary.querySelector('.search-collapsed-badge');
+          if (badge) {
+            if (currentInBlock) {
+              const currentIndex = matchesInDetails.findIndex(el =>
+                el.classList.contains('search-highlight-current') ||
+                el.classList.contains('search-url-match-current')
+              );
+              badge.textContent = `${currentIndex + 1}/${matchCount}`;
+              details.classList.add('search-collapsed-match-current');
+            } else {
+              badge.textContent = `${matchCount}`;
+              details.classList.remove('search-collapsed-match-current');
+            }
+          }
+        }
+      });
     }
 
     // Scroll to current match (for both rebuild and index-only change)

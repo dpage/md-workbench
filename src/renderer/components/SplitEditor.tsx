@@ -186,22 +186,23 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
       return 0;
     }
 
-    // Count matches in headings (both text and anchor URL)
+    // Count matches in headings (both anchor URL and text)
+    // Order matters: URL matches come first to match preview's sorting
     let count = 0;
     for (const heading of headings) {
-      // Count matches in the heading text
+      // Count matches in the generated anchor URL first
+      // The anchor is the heading text converted to lowercase, spaces to hyphens
+      const anchor = heading.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
       searchRegex.lastIndex = 0;
       let match;
-      while ((match = searchRegex.exec(heading)) !== null) {
+      while ((match = searchRegex.exec(anchor)) !== null) {
         count++;
         if (match[0].length === 0) searchRegex.lastIndex++;
       }
 
-      // Also count matches in the generated anchor URL
-      // The anchor is the heading text converted to lowercase, spaces to hyphens
-      const anchor = heading.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+      // Then count matches in the heading text
       searchRegex.lastIndex = 0;
-      while ((match = searchRegex.exec(anchor)) !== null) {
+      while ((match = searchRegex.exec(heading)) !== null) {
         count++;
         if (match[0].length === 0) searchRegex.lastIndex++;
       }
