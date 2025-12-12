@@ -11,8 +11,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Toolbar from './components/Toolbar';
 import TabBar, { Tab } from './components/TabBar';
 import MarkdownViewer, { SearchHighlightOptions } from './components/MarkdownViewer';
-import SplitEditor from './components/SplitEditor';
-import SourceViewer from './components/SourceViewer';
+import SplitEditor, { SplitEditorHandle } from './components/SplitEditor';
 import WelcomeScreen from './components/WelcomeScreen';
 import SearchBar, { SearchOptions, SearchResult } from './components/SearchBar';
 import HelpPanel from './components/HelpPanel';
@@ -178,6 +177,9 @@ const App: React.FC = () => {
   // Ref to track the active editor's textarea for clipboard operations
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // Ref to the SplitEditor for programmatic focus
+  const splitEditorRef = useRef<SplitEditorHandle>(null);
+
   // Counter for untitled files
   const untitledCounterRef = useRef(1);
 
@@ -224,6 +226,25 @@ const App: React.FC = () => {
     saveSession();
   }, [tabs, activeTabId, saveSession]);
 
+  // Focus the editor if it's editable (edit/split mode for markdown, always for other files)
+  const focusEditor = useCallback(() => {
+    requestAnimationFrame(() => {
+      const currentTab = tabsRef.current.find(tab => tab.id === activeTabIdRef.current);
+      if (!currentTab) return;
+
+      // For markdown files, only focus in edit or split mode (not preview)
+      // For non-markdown files, always focus (they're always editable)
+      const isMarkdown = currentTab.fileType === 'markdown';
+      const isEditable = isMarkdown
+        ? (currentTab.viewMode === 'edit' || currentTab.viewMode === 'split')
+        : true;
+
+      if (isEditable) {
+        splitEditorRef.current?.focus();
+      }
+    });
+  }, []);
+
   const handleOpenFile = useCallback(() => {
     window.electronAPI?.openFileDialog();
   }, []);
@@ -258,7 +279,9 @@ const App: React.FC = () => {
       entries: [],
       currentIndex: -1,
     });
-  }, []);
+
+    focusEditor();
+  }, [focusEditor]);
 
   const handleFileOpened = useCallback(async (data: FileData) => {
     const currentTabs = tabsRef.current;
@@ -348,11 +371,14 @@ const App: React.FC = () => {
         currentIndex: 0,
       });
     }
-  }, []);
+
+    focusEditor();
+  }, [focusEditor]);
 
   const handleTabSelect = useCallback((tabId: string) => {
     setActiveTabId(tabId);
-  }, []);
+    focusEditor();
+  }, [focusEditor]);
 
   // Save scroll position for a tab
   const handleScrollChange = useCallback(
@@ -864,7 +890,7 @@ const App: React.FC = () => {
     setViewSearchOptions(options);
   }, []);
 
-  // Handle current match index changes from SplitEditor or SourceViewer
+  // Handle current match index changes from SplitEditor
   const handleCurrentMatchChange = useCallback((matchIndex: number, totalMatches: number) => {
     setViewCurrentMatch(matchIndex + 1); // Convert 0-based to 1-based
     setViewMatchCount(totalMatches);
@@ -882,7 +908,8 @@ const App: React.FC = () => {
 
   const handleCloseHelp = useCallback(() => {
     setShowHelp(false);
-  }, []);
+    focusEditor();
+  }, [focusEditor]);
 
   // Preferences panel handlers
   const handleShowPreferences = useCallback(() => {
@@ -891,7 +918,8 @@ const App: React.FC = () => {
 
   const handleClosePreferences = useCallback(() => {
     setShowPreferences(false);
-  }, []);
+    focusEditor();
+  }, [focusEditor]);
 
   const handlePreferencesChange = useCallback((newPreferences: Preferences) => {
     setPreferences(newPreferences);
@@ -1291,6 +1319,7 @@ const App: React.FC = () => {
               activeTab.viewMode === 'edit' ? (
                 // Edit mode - editor only (no preview)
                 <SplitEditor
+                  ref={splitEditorRef}
                   key={`edit-${activeTab.id}`}
                   content={activeTab.content}
                   fileName={activeTab.fileName}
@@ -1322,6 +1351,7 @@ const App: React.FC = () => {
               ) : activeTab.viewMode === 'split' ? (
                 // Split mode - editor + preview
                 <SplitEditor
+                  ref={splitEditorRef}
                   key={`split-${activeTab.id}`}
                   content={activeTab.content}
                   fileName={activeTab.fileName}
@@ -1383,32 +1413,37 @@ const App: React.FC = () => {
                 </div>
               )
             ) : (
-              // Non-markdown file - show source viewer (read-only)
-              <div className="view-mode-container">
-                {showSearch && (
-                  <SearchBar
-                    onClose={handleCloseSearch}
-                    onSearch={handleViewSearch}
-                    onReplace={handleViewReplace}
-                    onReplaceAll={handleViewReplaceAll}
-                    onNavigate={handleViewNavigate}
-                    matchCount={viewMatchCount}
-                    currentMatch={viewCurrentMatch}
-                    showReplace={false}
-                    allowReplace={false}
-                    initialQuery={viewSearchQuery}
-                    initialOptions={viewSearchOptions}
-                  />
-                )}
-                <SourceViewer
-                  content={activeTab.content}
-                  searchQuery={showSearch ? viewSearchQuery : ''}
-                  searchOptions={viewSearchOptions}
-                  initialMatchIndex={viewCurrentMatch - 1}
-                  onMatchChange={handleCurrentMatchChange}
-                  highlightLanguage={activeTab.highlightLanguage}
-                />
-              </div>
+              // Non-markdown file - editable source editor (no preview)
+              <SplitEditor
+                ref={splitEditorRef}
+                key={`source-${activeTab.id}`}
+                content={activeTab.content}
+                fileName={activeTab.fileName}
+                filePath={activeTab.filePath}
+                onContentChange={handleContentChange}
+                showSearch={showSearch}
+                showReplace={showReplace}
+                onCloseSearch={handleCloseSearch}
+                initialSearchQuery={viewSearchQuery}
+                initialSearchOptions={viewSearchOptions}
+                initialMatchIndex={viewCurrentMatch - 1}
+                onSearchStateChange={handleSearchStateChange}
+                onCurrentMatchChange={handleCurrentMatchChange}
+                onCursorPositionChange={handleCursorPositionChange}
+                supportsFormatting={activeTab.supportsFormatting ?? false}
+                supportsRenderedView={false}
+                highlightLanguage={activeTab.highlightLanguage}
+                autoSave={preferences.autoSave}
+                onAutoSave={handleSave}
+                onFormat={handleFormat}
+                formatOnSave={preferences.formatting?.formatOnSave ?? false}
+                showLineNumbers={preferences.editor?.showLineNumbers ?? true}
+                showColumnRuler={preferences.editor?.showColumnRuler ?? true}
+                showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
+                maxLineLength={preferences.formatting?.maxLineLength ?? 79}
+                softWrap={preferences.editor?.softWrap ?? false}
+                formattingShortcuts={preferences.editor?.formattingShortcuts ?? true}
+              />
             )
           ) : !isRestoring ? (
             <WelcomeScreen onOpenFile={handleOpenFile} onOpenFolder={handleOpenFolder} />

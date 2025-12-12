@@ -7,7 +7,7 @@
 // See LICENSE.md for details.
 //
 
-import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import MarkdownViewer, { SearchHighlightOptions } from './MarkdownViewer';
 import SearchBar, { SearchOptions, SearchResult } from './SearchBar';
 import FormattingToolbar from './FormattingToolbar';
@@ -111,7 +111,12 @@ interface HistoryEntry {
 
 const MAX_UNDO_STACK_SIZE = 100;
 
-const SplitEditor: React.FC<SplitEditorProps> = ({
+// Handle exposed to parent for imperative actions
+export interface SplitEditorHandle {
+  focus: () => void;
+}
+
+const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
   content,
   fileName,
   filePath,
@@ -138,7 +143,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   maxLineLength = 79,
   softWrap = false,
   formattingShortcuts = true,
-}) => {
+}, ref) => {
   const [splitRatio, setSplitRatio] = useState(0.5); // 0-1, left panel width ratio
   const [isDragging, setIsDragging] = useState(false);
   const [editedContent, setEditedContent] = useState(content);
@@ -850,6 +855,13 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   const highlightRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef<HTMLDivElement>(null);
   const isScrollingSyncRef = useRef(false);
+
+  // Expose focus method to parent
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      textareaRef.current?.focus();
+    },
+  }), []);
 
   // Update local content when prop changes (e.g., file reload or format)
   // Only reset if content changed externally (not from our own edits)
@@ -1852,6 +1864,8 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
       </div>
     </div>
   );
-};
+});
+
+SplitEditor.displayName = 'SplitEditor';
 
 export default SplitEditor;

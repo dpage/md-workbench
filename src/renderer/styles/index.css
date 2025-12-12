@@ -1016,6 +1016,8 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
+  min-height: 52px;
+  box-sizing: border-box;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
@@ -1053,21 +1055,21 @@ body {
 .toolbar-file-group {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 2px;
+  padding: 3px;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .toolbar-file-group .toolbar-button {
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: 5px;
 }
 
 .toolbar-file-group .toolbar-button span {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -1574,7 +1576,7 @@ body {
 }
 
 .toolbar-view-mode-group .toolbar-button {
-  padding: 5px 12px;
+  padding: 6px 12px;
   border-radius: 5px;
   position: relative;
   z-index: 1;
@@ -1585,20 +1587,6 @@ body {
 }
 
 .toolbar-view-mode-group .toolbar-button span {
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* Toolbar view mode buttons */
-.toolbar-button-preview,
-.toolbar-button-edit,
-.toolbar-button-split {
-  padding: 6px 12px;
-}
-
-.toolbar-button-preview span,
-.toolbar-button-edit span,
-.toolbar-button-split span {
   font-size: 13px;
   font-weight: 500;
 }

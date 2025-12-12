@@ -53,7 +53,7 @@ const getFileTypeColor = (fileType?: string): string | null => {
     case 'json':
       return '#f0c040'; // yellow
     case 'yaml':
-      return '#cb4b16'; // orange
+      return '#d97706'; // amber (softer than red-ish orange)
     case 'xml':
     case 'html':
       return '#e44d26'; // html orange
