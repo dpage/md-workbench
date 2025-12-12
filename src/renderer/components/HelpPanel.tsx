@@ -169,6 +169,53 @@ const HelpContent: React.FC = () => (
     </section>
 
     <section>
+      <h2>Formatting Shortcuts</h2>
+      <p>When text is selected, typing formatting characters wraps the selection instead of replacing it:</p>
+      <table className="help-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Result</th>
+            <th>Markdown</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><kbd>*</kbd></td>
+            <td>Italic</td>
+            <td><code>*text*</code></td>
+          </tr>
+          <tr>
+            <td><kbd>*</kbd><kbd>*</kbd></td>
+            <td>Bold</td>
+            <td><code>**text**</code></td>
+          </tr>
+          <tr>
+            <td><kbd>_</kbd></td>
+            <td>Italic (alt)</td>
+            <td><code>_text_</code></td>
+          </tr>
+          <tr>
+            <td><kbd>~</kbd><kbd>~</kbd></td>
+            <td>Strikethrough</td>
+            <td><code>~~text~~</code></td>
+          </tr>
+          <tr>
+            <td><kbd>`</kbd></td>
+            <td>Inline code</td>
+            <td><code>`text`</code></td>
+          </tr>
+          <tr>
+            <td><kbd>`</kbd><kbd>`</kbd><kbd>`</kbd></td>
+            <td>Code block</td>
+            <td><code>```text```</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Multi-character shortcuts (**, ~~, ```) must be typed within 500ms. This feature can be disabled in Preferences → Editor.</p>
+    </section>
+
+    <section>
       <h2>Code Formatting</h2>
       <p>Format your code automatically:</p>
       <ul>
@@ -264,7 +311,7 @@ const HelpContent: React.FC = () => (
       <ul>
         <li><strong>General</strong> — Auto-reload files, auto-save, link behavior</li>
         <li><strong>Appearance</strong> — Light, dark, or system theme</li>
-        <li><strong>Editor</strong> — Line numbers, column ruler, current line highlight, soft wrap</li>
+        <li><strong>Editor</strong> — Line numbers, column ruler, current line highlight, soft wrap, formatting shortcuts</li>
         <li><strong>File Types</strong> — Set default viewing mode (View or Edit) per file type</li>
         <li><strong>Formatting</strong> — Indent size, tabs/spaces, max line length, format on save, SQL dialect</li>
       </ul>

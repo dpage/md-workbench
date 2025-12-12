@@ -1317,6 +1317,7 @@ const App: React.FC = () => {
                   showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
                   maxLineLength={preferences.formatting?.maxLineLength ?? 79}
                   softWrap={preferences.editor?.softWrap ?? false}
+                  formattingShortcuts={preferences.editor?.formattingShortcuts ?? true}
                 />
               ) : activeTab.viewMode === 'split' ? (
                 // Split mode - editor + preview
@@ -1347,6 +1348,7 @@ const App: React.FC = () => {
                   showCurrentLineHighlight={preferences.editor?.showCurrentLineHighlight ?? true}
                   maxLineLength={preferences.formatting?.maxLineLength ?? 79}
                   softWrap={preferences.editor?.softWrap ?? false}
+                  formattingShortcuts={preferences.editor?.formattingShortcuts ?? true}
                 />
               ) : (
                 // Preview mode (default)

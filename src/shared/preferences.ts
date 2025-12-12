@@ -52,6 +52,7 @@ export interface EditorOptions {
   showCurrentLineHighlight: boolean;
   showStatusBar: boolean;
   softWrap: boolean;
+  formattingShortcuts: boolean;
 }
 
 export const DEFAULT_EDITOR_OPTIONS: EditorOptions = {
@@ -60,6 +61,7 @@ export const DEFAULT_EDITOR_OPTIONS: EditorOptions = {
   showCurrentLineHighlight: true,
   showStatusBar: true,
   softWrap: false,
+  formattingShortcuts: true,
 };
 
 export interface Preferences {

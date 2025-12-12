@@ -361,6 +361,20 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
                   Visually wrap long lines to fit the editor width without affecting the saved content.
                 </p>
               </div>
+
+              <div className="preferences-group">
+                <label className="preferences-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={localPreferences.editor?.formattingShortcuts ?? true}
+                    onChange={(e) => handleEditorChange('formattingShortcuts', e.target.checked)}
+                  />
+                  <span>Formatting shortcuts</span>
+                </label>
+                <p className="preferences-description">
+                  When text is selected, typing formatting characters (*, **, _, ~~, `) wraps the selection instead of replacing it.
+                </p>
+              </div>
             </div>
           )}
 

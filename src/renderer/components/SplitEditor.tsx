@@ -94,6 +94,7 @@ interface SplitEditorProps {
   showCurrentLineHighlight?: boolean;
   maxLineLength?: number;
   softWrap?: boolean;
+  formattingShortcuts?: boolean;
 }
 
 interface Match {
@@ -136,6 +137,7 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   showCurrentLineHighlight = true,
   maxLineLength = 79,
   softWrap = false,
+  formattingShortcuts = true,
 }) => {
   const [splitRatio, setSplitRatio] = useState(0.5); // 0-1, left panel width ratio
   const [isDragging, setIsDragging] = useState(false);
@@ -156,6 +158,10 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
   const hasScrolledToInitialMatchRef = useRef(false);
   const parentUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
+  // Track recent keystrokes for multi-character formatting shortcuts (**, ~~, ```)
+  const recentKeysRef = useRef<Array<{ key: string; time: number }>>([]);
+  // Track pending selection for formatting shortcuts (handles race condition with requestAnimationFrame)
+  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
 
   // Count matches in TOC headings (for TOC marker badge)
   // This counts matches that appear in the rendered TOC (from headings)
@@ -614,9 +620,173 @@ const SplitEditor: React.FC<SplitEditorProps> = ({
         // Format Document: Shift+Alt+F (matches VS Code)
         e.preventDefault();
         onFormat?.();
+      } else if (formattingShortcuts && !modKey && !e.altKey) {
+        // Formatting shortcuts - wrap selected text with formatting characters
+        const textarea = e.currentTarget;
+        // Use pending selection if available (handles race condition when typing quickly)
+        // Otherwise fall back to DOM selection
+        const pending = pendingSelectionRef.current;
+        const start = pending?.start ?? textarea.selectionStart;
+        const end = pending?.end ?? textarea.selectionEnd;
+        const hasSelection = start !== end;
+
+        // Only process if there's a selection
+        if (hasSelection) {
+          const now = Date.now();
+          const formattingChars = ['*', '_', '~', '`'];
+
+          if (formattingChars.includes(e.key)) {
+            // Clean old keystrokes (older than 500ms)
+            recentKeysRef.current = recentKeysRef.current.filter(
+              k => now - k.time < 500
+            );
+
+            // Check for multi-character sequences
+            const recentKeys = recentKeysRef.current;
+            let wrapper = '';
+            let shouldWrap = false;
+
+            // Use contentRef for current content (handles race condition with React state)
+            const currentContent = contentRef.current;
+            const selectedText = currentContent.substring(start, end);
+
+            if (e.key === '`') {
+              // Check for ``` (code block)
+              if (recentKeys.length >= 2 &&
+                  recentKeys[recentKeys.length - 1].key === '`' &&
+                  recentKeys[recentKeys.length - 2].key === '`') {
+                wrapper = '```';
+                shouldWrap = true;
+                recentKeysRef.current = []; // Clear the buffer
+              } else if (selectedText.startsWith('`') && selectedText.endsWith('`') &&
+                         !selectedText.startsWith('``') && selectedText.length > 2) {
+                // Selection is already wrapped with single ` - upgrade by adding one more on each side
+                wrapper = '`';
+                shouldWrap = true;
+              } else {
+                // Single backtick - inline code
+                wrapper = '`';
+                shouldWrap = true;
+              }
+            } else if (e.key === '*') {
+              // Check if selection is already wrapped with single * (for upgrading to **)
+              if (selectedText.startsWith('*') && selectedText.endsWith('*') &&
+                  !selectedText.startsWith('**') && selectedText.length > 2) {
+                // Upgrade from *text* to **text** by adding * on each side
+                wrapper = '*';
+                shouldWrap = true;
+                recentKeysRef.current = []; // Clear buffer since we're upgrading
+              } else if (recentKeys.length >= 1 &&
+                  recentKeys[recentKeys.length - 1].key === '*') {
+                wrapper = '**';
+                shouldWrap = true;
+                recentKeysRef.current = []; // Clear the buffer
+              } else {
+                // Single * - italic
+                wrapper = '*';
+                shouldWrap = true;
+              }
+            } else if (e.key === '~') {
+              // Check if selection is already wrapped with single ~ (for upgrading to ~~)
+              if (selectedText.startsWith('~') && selectedText.endsWith('~') &&
+                  !selectedText.startsWith('~~') && selectedText.length > 2) {
+                // Upgrade from ~text~ to ~~text~~ by adding ~ on each side
+                wrapper = '~';
+                shouldWrap = true;
+                recentKeysRef.current = [];
+              } else if (recentKeys.length >= 1 &&
+                  recentKeys[recentKeys.length - 1].key === '~') {
+                wrapper = '~~';
+                shouldWrap = true;
+                recentKeysRef.current = []; // Clear the buffer
+              } else {
+                // Single ~ - record it but don't wrap yet
+                recentKeysRef.current.push({ key: e.key, time: now });
+                e.preventDefault();
+                return;
+              }
+            } else if (e.key === '_') {
+              // Single _ - italic (alternative)
+              wrapper = '_';
+              shouldWrap = true;
+            }
+
+            if (shouldWrap && wrapper) {
+              e.preventDefault();
+
+              let newText: string;
+              let newSelStart: number;
+              let newSelEnd: number;
+
+              if (wrapper === '```') {
+                // Code block - need linefeeds
+                const needsLeadingNewline = start > 0 && currentContent[start - 1] !== '\n';
+                const needsTrailingNewline = end < currentContent.length && currentContent[end] !== '\n';
+                const prefix = needsLeadingNewline ? '\n```\n' : '```\n';
+                const suffix = needsTrailingNewline ? '\n```\n' : '\n```';
+                newText = prefix + selectedText + suffix;
+                // Move cursor to end for code blocks
+                newSelStart = start + prefix.length + selectedText.length + suffix.length;
+                newSelEnd = newSelStart;
+              } else if (wrapper.length === 1) {
+                // Single-char wrappers (*, `, _)
+                // Keep the wrapped text selected for consistency
+                newText = wrapper + selectedText + wrapper;
+                newSelStart = start;
+                newSelEnd = start + wrapper.length + selectedText.length + wrapper.length;
+              } else {
+                // Multi-char wrappers (**, ~~)
+                // Move cursor to end
+                newText = wrapper + selectedText + wrapper;
+                newSelStart = start + wrapper.length + selectedText.length + wrapper.length;
+                newSelEnd = newSelStart;
+              }
+
+              const newContent = currentContent.substring(0, start) + newText + currentContent.substring(end);
+
+              // Push to undo stack
+              pushToUndoStack(textarea);
+
+              // Update content
+              setEditedContent(newContent);
+              contentRef.current = newContent;
+
+              // Clear any pending debounced updates and update immediately
+              if (parentUpdateTimerRef.current) {
+                clearTimeout(parentUpdateTimerRef.current);
+              }
+              if (previewTimerRef.current) {
+                clearTimeout(previewTimerRef.current);
+              }
+              onContentChange?.(newContent);
+              setPreviewContent(newContent);
+
+              // Store pending selection immediately (for race condition handling)
+              // This allows the next keystroke to use correct selection even if
+              // requestAnimationFrame hasn't fired yet
+              pendingSelectionRef.current = { start: newSelStart, end: newSelEnd };
+
+              // Set cursor/selection position
+              requestAnimationFrame(() => {
+                textarea.setSelectionRange(newSelStart, newSelEnd);
+                setSelectionStart(newSelStart);
+                setSelectionEnd(newSelEnd);
+                // Clear pending selection after applying
+                pendingSelectionRef.current = null;
+              });
+
+              return;
+            }
+          }
+
+          // Record keystroke for multi-character detection
+          if (['*', '~', '`'].includes(e.key)) {
+            recentKeysRef.current.push({ key: e.key, time: now });
+          }
+        }
       }
     },
-    [handleUndo, handleRedo, onFormat]
+    [handleUndo, handleRedo, onFormat, formattingShortcuts, editedContent, onContentChange, pushToUndoStack]
   );
 
   // Track selection changes in textarea - only when selection actually changes
