@@ -133,7 +133,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         {hasActiveTab && (
           <>
             <div className="toolbar-separator" />
-            {(viewMode === 'edit' || viewMode === 'split') && (
+            {(viewMode === 'edit' || viewMode === 'split' || !isMarkdownFile) && (
               <button
                 className="toolbar-button toolbar-button-icon"
                 onClick={onCut}
@@ -205,7 +205,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                 </svg>
               )}
             </button>
-            {(viewMode === 'edit' || viewMode === 'split') && (
+            {(viewMode === 'edit' || viewMode === 'split' || !isMarkdownFile) && (
               <button
                 className="toolbar-button toolbar-button-icon"
                 onClick={onPaste}
@@ -259,7 +259,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                 />
               </svg>
             </button>
-            {(viewMode === 'edit' || viewMode === 'split') && (
+            {(viewMode === 'edit' || viewMode === 'split' || !isMarkdownFile) && (
               <button
                 className="toolbar-button toolbar-button-icon"
                 onClick={onFindReplace}
