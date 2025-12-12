@@ -4,9 +4,19 @@ All notable changes to Markdown Workbench will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.0-alpha.6] - 2025-12-12
+
 ### Added
 - **New File button**: Create new untitled Markdown files from the toolbar or via Cmd/Ctrl+N. New files open in edit mode and prompt for a save location on first save.
 - **Soft wrap option**: New editor preference to visually wrap long lines to fit the viewport without affecting saved content. Line numbers align correctly with wrapped content, showing the logical line number at the top of each wrapped block.
+- **Formatting shortcuts**: When text is selected, typing formatting characters (*, _, ~, `) wraps the selection instead of replacing it. Double characters (**, ~~, ```) detected within 500ms. Configurable in Preferences → Editor.
+- **Search in collapsed sections**: Search matches inside collapsed code blocks and details elements now show a badge indicating the number of matches.
+
+### Fixed
+- **Scroll sync with soft wrap**: Heading-based scroll synchronization now works correctly when soft wrap is enabled.
+- **Auto-save for toolbar formatting**: Using toolbar buttons (bold, italic, etc.) now properly triggers auto-save when enabled.
+- **Toolbar buttons for non-Markdown files**: Cut, paste, and find/replace buttons now appear correctly when editing non-Markdown files.
+- **Search highlight synchronization**: Fixed numerous issues with search match highlighting and navigation between editor and preview panels.
 
 ## [1.0.0-alpha.5] - 2025-12-10
 
