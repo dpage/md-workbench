@@ -521,8 +521,9 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     setPreviewContent(entry.content);
 
     // Trigger auto-save if enabled (but not for untitled files)
+    // Use setTimeout to defer auto-save until after React state update has flushed
     if (autoSave && onAutoSave && filePath) {
-      onAutoSave();
+      setTimeout(() => onAutoSave(), 0);
     }
 
     // Restore selection
@@ -565,8 +566,9 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     setPreviewContent(entry.content);
 
     // Trigger auto-save if enabled (but not for untitled files)
+    // Use setTimeout to defer auto-save until after React state update has flushed
     if (autoSave && onAutoSave && filePath) {
-      onAutoSave();
+      setTimeout(() => onAutoSave(), 0);
     }
 
     // Restore selection
@@ -832,6 +834,13 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
       onContentChange?.(result.newContent);
       setPreviewContent(result.newContent);
 
+      // Trigger auto-save if enabled (but not for untitled files)
+      // Use setTimeout to defer auto-save until after React state update has flushed
+      // (otherwise handleSave reads stale isDirty flag from tabsRef)
+      if (autoSave && onAutoSave && filePath) {
+        setTimeout(() => onAutoSave(), 0);
+      }
+
       // Focus the textarea and set the new selection
       textarea.focus();
 
@@ -842,7 +851,7 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
         setSelectionEnd(result.newSelectionEnd);
       });
     },
-    [onContentChange, pushToUndoStack]
+    [onContentChange, pushToUndoStack, autoSave, onAutoSave, filePath]
   );
   const containerRef = useRef<HTMLDivElement>(null);
   const sourceRef = useRef<HTMLDivElement>(null);
