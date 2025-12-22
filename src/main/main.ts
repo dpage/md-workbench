@@ -1194,7 +1194,17 @@ app.on('open-file', (event, filePath) => {
     return;
   }
 
-  if (mainWindow && initialStartupComplete) {
+  // If no window exists (macOS: app can run without windows), create one
+  if (!mainWindow) {
+    filesToOpenOnReady.push(filePath);
+    // Only create window if app is ready (otherwise whenReady will create it)
+    if (app.isReady()) {
+      createWindow();
+    }
+    return;
+  }
+
+  if (initialStartupComplete) {
     // App is fully initialized, open the file directly
     openFile(filePath);
     // Bring app and window to foreground on macOS
@@ -1206,7 +1216,7 @@ app.on('open-file', (event, filePath) => {
     mainWindow.focus();
     app.focus({ steal: true });
   } else {
-    // App is starting up or not fully initialized, queue the file to open when ready
+    // App window exists but still initializing, queue the file
     filesToOpenOnReady.push(filePath);
   }
 });
