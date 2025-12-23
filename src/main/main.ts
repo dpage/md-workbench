@@ -32,7 +32,28 @@ import {
   DEFAULT_MARKDOWN_OPTIONS,
   DEFAULT_FORMATTING_OPTIONS,
   DEFAULT_EDITOR_OPTIONS,
+  DEFAULT_AI_OPTIONS,
+  DEFAULT_CHAT_OPTIONS,
 } from '../shared/preferences';
+import { AIProvider, AIOptions } from '../shared/aiProviders';
+import {
+  testConnection,
+  listModels,
+  getKeyStatus,
+  smartMatchModel,
+} from './aiService';
+import {
+  initDatabase as initChatDatabase,
+  closeDatabase as closeChatDatabase,
+  getConversation,
+  saveMessage,
+  clearConversation,
+  getMessageCount,
+  needsCompaction,
+} from './chatDatabase';
+import { streamChat, abortChat } from './chatService';
+import { executeTool, ToolContext } from './toolExecutor';
+import type { ChatMessage, ChatStreamRequest, ToolDefinition, ToolCall, ToolResult } from '../shared/chatTypes';
 
 // Register custom protocol for serving local files
 protocol.registerSchemesAsPrivileged([
@@ -127,6 +148,14 @@ function getPreferencesWithDefaults(): Preferences {
     editor: {
       ...DEFAULT_EDITOR_OPTIONS,
       ...(stored.editor || {}),
+    },
+    ai: {
+      ...DEFAULT_AI_OPTIONS,
+      ...(stored.ai || {}),
+    },
+    chat: {
+      ...DEFAULT_CHAT_OPTIONS,
+      ...(stored.chat || {}),
     },
   };
 }
@@ -1179,6 +1208,328 @@ ipcMain.handle('set-file-view-mode', (_, filePath: string, mode: MarkdownViewMod
   store.set('fileViewModes', fileViewModes);
 });
 
+// AI provider handlers
+ipcMain.handle('test-ai-connection', async (_, provider: AIProvider, options: AIOptions) => {
+  return await testConnection(provider, options);
+});
+
+ipcMain.handle('list-ai-models', async (_, provider: AIProvider, options: AIOptions) => {
+  return await listModels(provider, options);
+});
+
+ipcMain.handle('get-ai-key-status', async (_, provider: AIProvider, keyFilePath: string) => {
+  return await getKeyStatus(provider, keyFilePath);
+});
+
+ipcMain.handle('smart-match-ai-model', (_, provider: AIProvider, savedModelId: string | null, availableModels: Array<{ id: string; displayName: string; provider: AIProvider }>) => {
+  return smartMatchModel(provider, savedModelId, availableModels);
+});
+
+ipcMain.handle('browse-key-file', async () => {
+  if (!mainWindow) return { canceled: true };
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'showHiddenFiles'],
+    filters: [
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { canceled: true };
+  }
+
+  return {
+    canceled: false,
+    filePath: result.filePaths[0],
+  };
+});
+
+// Chat database handlers
+ipcMain.handle('chat-get-conversation', (_, filePath: string) => {
+  return getConversation(filePath);
+});
+
+ipcMain.handle('chat-save-message', (_, filePath: string, message: ChatMessage) => {
+  return saveMessage(filePath, message);
+});
+
+ipcMain.handle('chat-clear-conversation', (_, filePath: string) => {
+  clearConversation(filePath);
+  return { success: true };
+});
+
+ipcMain.handle('chat-get-message-count', (_, filePath: string) => {
+  return getMessageCount(filePath);
+});
+
+ipcMain.handle('chat-needs-compaction', (_, filePath: string, threshold: number) => {
+  return needsCompaction(filePath, threshold);
+});
+
+// Chat streaming handlers
+ipcMain.handle('chat-stream-start', async (
+  _,
+  request: ChatStreamRequest,
+  tools: ToolDefinition[]
+) => {
+  const ai = getPreferencesWithDefaults().ai;
+  const chat = getPreferencesWithDefaults().chat;
+
+  // Build system prompt with formatting context
+  const formatting = getPreferencesWithDefaults().formatting;
+  const systemPromptWithContext = `${chat.systemPrompt}
+
+Current file context:
+- File: ${request.fileName}
+- Formatting: indent=${formatting.indentSize}, maxLine=${formatting.maxLineLength}, sqlDialect=${formatting.sqlDialect}`;
+
+  // Filter tools based on explicit allowEdits toggle
+  // When false, don't provide find_and_replace - if the tool isn't available, it can't be called
+  const availableTools = request.allowEdits
+    ? tools
+    : tools.filter(t => t.name !== 'find_and_replace');
+
+  // Track conversation and file content for tool execution loop
+  let conversationHistory = [...request.conversationHistory];
+  let currentFileContent = request.fileContent;
+  const pendingToolCalls: ToolCall[] = [];
+  const MAX_TOOL_ITERATIONS = 10; // Prevent infinite loops
+  let iterationCount = 0;
+  let lastFailedToolCall: string | null = null; // Track consecutive failed calls
+  let consecutiveFailures = 0;
+  const successfulOperations = new Set<string>(); // Track successful tool calls to prevent duplicates
+  let hadToolCalls = false; // Track if any tool calls have been made (to suppress streaming after first iteration)
+  let alreadyCompletedCount = 0; // Track "already completed" responses to detect stuck loops
+
+  // Tool context for executing tools
+  const createToolContext = (): ToolContext => ({
+    fileContent: currentFileContent,
+    selection: request.selection,
+    onContentUpdate: (newContent: string) => {
+      currentFileContent = newContent;
+      mainWindow?.webContents.send('chat-content-update', {
+        requestId: request.requestId,
+        newContent,
+      });
+    },
+  });
+
+  // Main chat loop - continues until no more tool calls
+  const runChatLoop = async (): Promise<void> => {
+    if (iterationCount >= MAX_TOOL_ITERATIONS) {
+      mainWindow?.webContents.send('chat-error', {
+        requestId: request.requestId,
+        error: 'Maximum tool call iterations reached',
+      });
+      return;
+    }
+    iterationCount++;
+
+    return new Promise((resolve, reject) => {
+      streamChat(
+        ai.provider,
+        ai,
+        conversationHistory,
+        systemPromptWithContext,
+        availableTools,
+        {
+          onToken: (token) => {
+            // Only stream tokens if we haven't had any tool calls yet
+            // This prevents "vanishing text" during tool-use iterations
+            if (!hadToolCalls) {
+              mainWindow?.webContents.send('chat-token', {
+                requestId: request.requestId,
+                token,
+              });
+            }
+          },
+          onToolCall: (toolCall) => {
+            hadToolCalls = true; // Mark that we've had tool calls - suppress subsequent streaming
+            pendingToolCalls.push(toolCall);
+            mainWindow?.webContents.send('chat-tool-call', {
+              requestId: request.requestId,
+              toolCall,
+            });
+          },
+          onToolResult: (result) => {
+            mainWindow?.webContents.send('chat-tool-result', {
+              requestId: request.requestId,
+              result,
+            });
+          },
+          onComplete: async (message) => {
+            // Add assistant message to conversation
+            conversationHistory.push(message);
+
+            // Check if there are tool calls to execute
+            if (message.toolCalls && message.toolCalls.length > 0) {
+              // Send the assistant message with tool calls to renderer
+              // so it's included in conversation history for future requests
+              mainWindow?.webContents.send('chat-assistant-message', {
+                requestId: request.requestId,
+                message,
+              });
+
+              const toolContext = createToolContext();
+
+              // Execute each tool call
+              for (const toolCall of message.toolCalls) {
+                // Create signature for this tool call
+                const toolCallSignature = `${toolCall.name}:${JSON.stringify(toolCall.arguments)}`;
+
+                // For read operations, track by name only (not arguments) to catch models that vary args
+                const isReadOperation = toolCall.name === 'read_file_content' || toolCall.name === 'read_selection';
+                const dedupeKey = isReadOperation ? toolCall.name : toolCallSignature;
+
+                // Check if this operation already succeeded
+                if (successfulOperations.has(dedupeKey)) {
+                  alreadyCompletedCount++;
+
+                  // Don't re-execute, return a message indicating it's already done
+                  const alreadyDoneResult: ToolResult = {
+                    toolCallId: toolCall.id,
+                    content: 'This operation was already completed successfully. STOP calling tools and answer the user directly.',
+                    isError: false,
+                  };
+
+                  mainWindow?.webContents.send('chat-tool-result', {
+                    requestId: request.requestId,
+                    result: alreadyDoneResult,
+                  });
+
+                  const toolResultMessage: ChatMessage = {
+                    role: 'tool',
+                    content: alreadyDoneResult.content,
+                    toolCallId: toolCall.id,
+                    isError: false,
+                    timestamp: Date.now(),
+                  };
+                  conversationHistory.push(toolResultMessage);
+
+                  // Immediately bail out after 2 "already completed" responses - force complete NOW
+                  if (alreadyCompletedCount >= 2) {
+                    const forceCompleteMessage: ChatMessage = {
+                      role: 'assistant',
+                      content: 'I have read the document. Let me provide a summary based on its contents.',
+                      timestamp: Date.now(),
+                    };
+                    mainWindow?.webContents.send('chat-complete', {
+                      requestId: request.requestId,
+                      message: forceCompleteMessage,
+                    });
+                    resolve();
+                    return;
+                  }
+                  continue;
+                }
+
+                const result = executeTool(toolCall, toolContext);
+                result.toolCallId = toolCall.id;
+                if (result.isError) {
+                  if (lastFailedToolCall === toolCallSignature) {
+                    consecutiveFailures++;
+                  } else {
+                    lastFailedToolCall = toolCallSignature;
+                    consecutiveFailures = 1;
+                  }
+                } else {
+                  // Track successful operation to prevent re-execution
+                  // Use dedupeKey for read ops (by name) so arg variations are caught
+                  successfulOperations.add(dedupeKey);
+                  // Reset failure tracking on success
+                  lastFailedToolCall = null;
+                  consecutiveFailures = 0;
+                }
+
+                // Send tool result to renderer
+                mainWindow?.webContents.send('chat-tool-result', {
+                  requestId: request.requestId,
+                  result,
+                });
+
+                // Add tool result message to conversation
+                const toolResultMessage: ChatMessage = {
+                  role: 'tool',
+                  content: result.content,
+                  toolCallId: toolCall.id,
+                  isError: result.isError,
+                  timestamp: Date.now(),
+                };
+                conversationHistory.push(toolResultMessage);
+              }
+
+              // Clear pending tool calls
+              pendingToolCalls.length = 0;
+
+              // If the same tool call failed 2+ times, stop the loop
+              if (consecutiveFailures >= 2) {
+                mainWindow?.webContents.send('chat-error', {
+                  requestId: request.requestId,
+                  error: 'The AI keeps trying the same failed operation. Please rephrase your request.',
+                });
+                resolve();
+                return;
+              }
+
+              // If the model keeps calling already-completed operations, stop and force a response
+              if (alreadyCompletedCount >= 2) {
+                // Force complete the conversation - model is stuck in a loop
+                const forceCompleteMessage: ChatMessage = {
+                  role: 'assistant',
+                  content: 'I have all the information I need. Let me answer your question based on what I read.',
+                  timestamp: Date.now(),
+                };
+                mainWindow?.webContents.send('chat-complete', {
+                  requestId: request.requestId,
+                  message: forceCompleteMessage,
+                });
+                resolve();
+                return;
+              }
+
+              // Continue the conversation with tool results
+              try {
+                await runChatLoop();
+                resolve();
+              } catch (err) {
+                reject(err);
+              }
+            } else {
+              // No tool calls - we're done
+              mainWindow?.webContents.send('chat-complete', {
+                requestId: request.requestId,
+                message,
+              });
+              resolve();
+            }
+          },
+          onError: (error) => {
+            mainWindow?.webContents.send('chat-error', {
+              requestId: request.requestId,
+              error: error.message,
+            });
+            reject(error);
+          },
+        },
+        request.requestId,
+        mainWindow
+      ).catch(reject);
+    });
+  };
+
+  // Start the chat loop
+  try {
+    await runChatLoop();
+  } catch (error) {
+    // Error already sent to renderer
+  }
+});
+
+ipcMain.handle('chat-stream-stop', (_, requestId: string) => {
+  return abortChat(requestId);
+});
+
 // Listen for OS theme changes
 nativeTheme.on('updated', () => {
   if (store.get('theme') === 'system') {
@@ -1252,6 +1603,14 @@ if (!gotTheLock) {
 filesToOpenOnReady = getFilePathsFromArgs(process.argv);
 
 app.whenReady().then(() => {
+  // Initialize chat database
+  try {
+    initChatDatabase();
+  } catch (err) {
+    console.error('Failed to initialize chat database:', err);
+    // Continue without chat - the app should still work
+  }
+
   // Register protocol handler for local files
   protocol.handle('local-file', (request) => {
     const filePath = decodeURIComponent(request.url.replace('local-file://', ''));
@@ -1277,4 +1636,5 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   stopAllWatchers();
+  closeChatDatabase();
 });

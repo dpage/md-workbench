@@ -8,6 +8,25 @@
 //
 
 import { contextBridge, ipcRenderer } from 'electron';
+import type {
+  AIProvider,
+  AIOptions,
+  AIModel,
+  AIConnectionStatus,
+  AIKeyStatus,
+} from '../shared/aiProviders';
+import type {
+  ChatMessage,
+  Conversation,
+  ChatTokenEvent,
+  ChatToolCallEvent,
+  ChatToolResultEvent,
+  ChatCompleteEvent,
+  ChatErrorEvent,
+  ChatContentUpdateEvent,
+  ChatStreamRequest,
+  ToolDefinition,
+} from '../shared/chatTypes';
 
 export interface FileData {
   filePath: string;
@@ -286,5 +305,110 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = () => callback();
     ipcRenderer.on('new-file', listener);
     return () => ipcRenderer.removeListener('new-file', listener);
+  },
+
+  // AI provider operations
+  testAIConnection: (provider: AIProvider, options: AIOptions) =>
+    ipcRenderer.invoke('test-ai-connection', provider, options) as Promise<AIConnectionStatus>,
+
+  listAIModels: (provider: AIProvider, options: AIOptions) =>
+    ipcRenderer.invoke('list-ai-models', provider, options) as Promise<{
+      models: AIModel[];
+      error?: string;
+    }>,
+
+  getAIKeyStatus: (provider: AIProvider, keyFilePath: string) =>
+    ipcRenderer.invoke('get-ai-key-status', provider, keyFilePath) as Promise<AIKeyStatus>,
+
+  smartMatchAIModel: (
+    provider: AIProvider,
+    savedModelId: string | null,
+    availableModels: AIModel[]
+  ) =>
+    ipcRenderer.invoke('smart-match-ai-model', provider, savedModelId, availableModels) as Promise<string | null>,
+
+  browseKeyFile: () =>
+    ipcRenderer.invoke('browse-key-file') as Promise<{
+      canceled: boolean;
+      filePath?: string;
+    }>,
+
+  // Chat operations
+  chatGetConversation: (filePath: string) =>
+    ipcRenderer.invoke('chat-get-conversation', filePath) as Promise<Conversation | null>,
+
+  chatSaveMessage: (filePath: string, message: ChatMessage) =>
+    ipcRenderer.invoke('chat-save-message', filePath, message) as Promise<number>,
+
+  chatClearConversation: (filePath: string) =>
+    ipcRenderer.invoke('chat-clear-conversation', filePath) as Promise<{ success: boolean }>,
+
+  chatGetMessageCount: (filePath: string) =>
+    ipcRenderer.invoke('chat-get-message-count', filePath) as Promise<number>,
+
+  chatNeedsCompaction: (filePath: string, threshold: number) =>
+    ipcRenderer.invoke('chat-needs-compaction', filePath, threshold) as Promise<boolean>,
+
+  chatStreamStart: (request: ChatStreamRequest, tools: ToolDefinition[]) =>
+    ipcRenderer.invoke('chat-stream-start', request, tools) as Promise<void>,
+
+  chatStreamStop: (requestId: string) =>
+    ipcRenderer.invoke('chat-stream-stop', requestId) as Promise<boolean>,
+
+  // Chat streaming event listeners
+  onChatToken: (callback: (event: ChatTokenEvent) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: ChatTokenEvent) => {
+      callback(event);
+    };
+    ipcRenderer.on('chat-token', listener);
+    return () => ipcRenderer.removeListener('chat-token', listener);
+  },
+
+  onChatToolCall: (callback: (event: ChatToolCallEvent) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: ChatToolCallEvent) => {
+      callback(event);
+    };
+    ipcRenderer.on('chat-tool-call', listener);
+    return () => ipcRenderer.removeListener('chat-tool-call', listener);
+  },
+
+  onChatToolResult: (callback: (event: ChatToolResultEvent) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: ChatToolResultEvent) => {
+      callback(event);
+    };
+    ipcRenderer.on('chat-tool-result', listener);
+    return () => ipcRenderer.removeListener('chat-tool-result', listener);
+  },
+
+  onChatAssistantMessage: (callback: (event: { requestId: string; message: ChatMessage }) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: { requestId: string; message: ChatMessage }) => {
+      callback(event);
+    };
+    ipcRenderer.on('chat-assistant-message', listener);
+    return () => ipcRenderer.removeListener('chat-assistant-message', listener);
+  },
+
+  onChatComplete: (callback: (event: ChatCompleteEvent) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: ChatCompleteEvent) => {
+      callback(event);
+    };
+    ipcRenderer.on('chat-complete', listener);
+    return () => ipcRenderer.removeListener('chat-complete', listener);
+  },
+
+  onChatError: (callback: (event: ChatErrorEvent) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: ChatErrorEvent) => {
+      callback(event);
+    };
+    ipcRenderer.on('chat-error', listener);
+    return () => ipcRenderer.removeListener('chat-error', listener);
+  },
+
+  onChatContentUpdate: (callback: (event: ChatContentUpdateEvent) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: ChatContentUpdateEvent) => {
+      callback(event);
+    };
+    ipcRenderer.on('chat-content-update', listener);
+    return () => ipcRenderer.removeListener('chat-content-update', listener);
   },
 });

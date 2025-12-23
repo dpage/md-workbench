@@ -18,8 +18,22 @@ import HelpPanel from './components/HelpPanel';
 import FolderPanel from './components/FolderPanel';
 import PreferencesPanel from './components/PreferencesPanel';
 import StatusBar from './components/StatusBar';
+import ChatPanel from './components/ChatPanel';
 import { Preferences, DEFAULT_PREFERENCES, MarkdownViewMode, DEFAULT_MARKDOWN_OPTIONS } from '../shared/preferences';
+import { AIProvider, AIOptions, AIModel, AIConnectionStatus, AIKeyStatus } from '../shared/aiProviders';
 import { FileType } from '../shared/fileTypes';
+import type {
+  ChatMessage,
+  Conversation,
+  ChatTokenEvent,
+  ChatToolCallEvent,
+  ChatToolResultEvent,
+  ChatCompleteEvent,
+  ChatErrorEvent,
+  ChatContentUpdateEvent,
+  ChatStreamRequest,
+  ToolDefinition,
+} from '../shared/chatTypes';
 import { formatDocument, canFormatDocument } from './utils/formatters';
 
 interface CursorPosition {
@@ -137,6 +151,28 @@ declare global {
       // Per-file view mode storage
       getFileViewMode: (filePath: string) => Promise<MarkdownViewMode | null>;
       setFileViewMode: (filePath: string, mode: MarkdownViewMode) => Promise<void>;
+      // AI provider operations
+      testAIConnection: (provider: AIProvider, options: AIOptions) => Promise<AIConnectionStatus>;
+      listAIModels: (provider: AIProvider, options: AIOptions) => Promise<{ models: AIModel[]; error?: string }>;
+      getAIKeyStatus: (provider: AIProvider, keyFilePath: string) => Promise<AIKeyStatus>;
+      smartMatchAIModel: (provider: AIProvider, savedModelId: string | null, availableModels: AIModel[]) => Promise<string | null>;
+      browseKeyFile: () => Promise<{ canceled: boolean; filePath?: string }>;
+      // Chat operations
+      chatGetConversation: (filePath: string) => Promise<Conversation | null>;
+      chatSaveMessage: (filePath: string, message: ChatMessage) => Promise<number>;
+      chatClearConversation: (filePath: string) => Promise<{ success: boolean }>;
+      chatGetMessageCount: (filePath: string) => Promise<number>;
+      chatNeedsCompaction: (filePath: string, threshold: number) => Promise<boolean>;
+      chatStreamStart: (request: ChatStreamRequest, tools: ToolDefinition[]) => Promise<void>;
+      chatStreamStop: (requestId: string) => Promise<boolean>;
+      // Chat streaming event listeners
+      onChatToken: (callback: (event: ChatTokenEvent) => void) => () => void;
+      onChatToolCall: (callback: (event: ChatToolCallEvent) => void) => () => void;
+      onChatToolResult: (callback: (event: ChatToolResultEvent) => void) => () => void;
+      onChatAssistantMessage: (callback: (event: { requestId: string; message: ChatMessage }) => void) => () => void;
+      onChatComplete: (callback: (event: ChatCompleteEvent) => void) => () => void;
+      onChatError: (callback: (event: ChatErrorEvent) => void) => () => void;
+      onChatContentUpdate: (callback: (event: ChatContentUpdateEvent) => void) => () => void;
     };
   }
 }
@@ -163,6 +199,8 @@ const App: React.FC = () => {
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [currentFolder, setCurrentFolder] = useState<FolderData | null>(null);
   const [formatError, setFormatError] = useState<string | null>(null);
+  const [showChat, setShowChat] = useState(false);
+  const [chatPanelWidth, setChatPanelWidth] = useState(350); // Default width in pixels
   const [cursorPosition, setCursorPosition] = useState<CursorPosition>({ line: 1, column: 1 });
 
   // Search state for view mode (non-edit mode)
@@ -517,19 +555,46 @@ const App: React.FC = () => {
     const currentTabId = activeTabIdRef.current;
     if (!currentTabId) return;
 
+    const currentTab = tabsRef.current.find((tab) => tab.id === currentTabId);
+    if (!currentTab) return;
+
+    const originalContent =
+      currentTab.originalContent !== undefined
+        ? currentTab.originalContent
+        : currentTab.content;
+    const isDirty = newContent !== originalContent;
+
     setTabs((prev) =>
       prev.map((tab) => {
         if (tab.id === currentTabId) {
-          const originalContent =
-            tab.originalContent !== undefined
-              ? tab.originalContent
-              : tab.content;
-          const isDirty = newContent !== originalContent;
           return { ...tab, content: newContent, isDirty };
         }
         return tab;
       })
     );
+
+    // Auto-save in preview mode (SplitEditor handles it in edit/split modes)
+    // This ensures LLM-initiated changes are saved even when SplitEditor isn't mounted
+    if (isDirty && currentTab.viewMode === 'preview' && preferencesRef.current.autoSave && currentTab.filePath) {
+      setTimeout(async () => {
+        try {
+          await window.electronAPI.saveFile({
+            filePath: currentTab.filePath,
+            content: newContent,
+          });
+          // Mark as saved
+          setTabs((prev) =>
+            prev.map((tab) =>
+              tab.id === currentTabId
+                ? { ...tab, isDirty: false, originalContent: newContent }
+                : tab
+            )
+          );
+        } catch (error) {
+          console.error('Failed to auto-save in preview mode:', error);
+        }
+      }, 0);
+    }
   }, []);
 
   // Save current file
@@ -921,6 +986,16 @@ const App: React.FC = () => {
     focusEditor();
   }, [focusEditor]);
 
+  // Chat panel handlers
+  const handleToggleChat = useCallback(() => {
+    setShowChat(prev => !prev);
+  }, []);
+
+  const handleCloseChat = useCallback(() => {
+    setShowChat(false);
+    focusEditor();
+  }, [focusEditor]);
+
   const handlePreferencesChange = useCallback((newPreferences: Preferences) => {
     setPreferences(newPreferences);
     window.electronAPI?.setPreferences(newPreferences);
@@ -1144,6 +1219,17 @@ const App: React.FC = () => {
       for (const file of data.files) {
         try {
           const fileData = await window.electronAPI.readFile(file.filePath);
+          const isMarkdown = fileData.fileType === 'markdown';
+
+          // Determine view mode for markdown files
+          let viewMode: MarkdownViewMode = preferencesRef.current.markdown?.defaultViewMode ?? 'preview';
+          if (isMarkdown && preferencesRef.current.markdown?.rememberViewModes) {
+            const savedMode = await window.electronAPI?.getFileViewMode(fileData.filePath);
+            if (savedMode) {
+              viewMode = savedMode;
+            }
+          }
+
           const tab: Tab = {
             id: `tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             filePath: fileData.filePath,
@@ -1153,6 +1239,7 @@ const App: React.FC = () => {
             highlightLanguage: fileData.highlightLanguage,
             supportsRenderedView: fileData.supportsRenderedView ?? true,
             supportsFormatting: fileData.supportsFormatting ?? true,
+            viewMode: isMarkdown ? viewMode : undefined,
           };
           loadedTabs.push(tab);
 
@@ -1327,6 +1414,39 @@ const App: React.FC = () => {
           />
         )}
         <div className="app-content">
+          {showChat && activeTab && activeTab.filePath && (
+            <>
+              <ChatPanel
+                filePath={activeTab.filePath}
+                fileName={activeTab.fileName}
+                content={activeTab.content}
+                selection={null}
+                onContentChange={handleContentChange}
+                preferences={preferences}
+                onClose={handleCloseChat}
+                width={chatPanelWidth}
+              />
+              <div
+                className="chat-resize-handle"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  const startX = e.clientX;
+                  const startWidth = chatPanelWidth;
+                  const handleMouseMove = (moveEvent: MouseEvent) => {
+                    const newWidth = Math.max(250, Math.min(600, startWidth + moveEvent.clientX - startX));
+                    setChatPanelWidth(newWidth);
+                  };
+                  const handleMouseUp = () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                  };
+                  document.addEventListener('mousemove', handleMouseMove);
+                  document.addEventListener('mouseup', handleMouseUp);
+                }}
+              />
+            </>
+          )}
+          <div className="editor-content" style={showChat && activeTab ? { flex: 1 } : undefined}>
           {activeTab ? (
             activeTab.fileType === 'markdown' ? (
               // Markdown file - use view mode
@@ -1462,6 +1582,7 @@ const App: React.FC = () => {
           ) : !isRestoring ? (
             <WelcomeScreen onOpenFile={handleOpenFile} onOpenFolder={handleOpenFolder} />
           ) : null}
+          </div>
         </div>
       </main>
       {activeTab && (preferences.editor?.showStatusBar ?? true) && (
@@ -1525,6 +1646,42 @@ const App: React.FC = () => {
             </svg>
           </button>
         </div>
+      )}
+      {activeTab && (
+        <button
+          className={`chat-fab ${showChat ? 'active' : ''} ${(preferences.editor?.showStatusBar ?? true) ? 'with-status-bar' : ''}`}
+          onClick={handleToggleChat}
+          title={showChat ? 'Hide AI Chat' : 'Show AI Chat'}
+          aria-label={showChat ? 'Hide AI Chat' : 'Show AI Chat'}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M2 3C2 2.44772 2.44772 2 3 2H13C13.5523 2 14 2.44772 14 3V10C14 10.5523 13.5523 11 13 11H5L2 14V3Z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M5 5.5H11"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <path
+              d="M5 8H9"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
       )}
     </div>
   );

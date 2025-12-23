@@ -868,7 +868,7 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     },
   }), []);
 
-  // Update local content when prop changes (e.g., file reload or format)
+  // Update local content when prop changes (e.g., file reload, format, or LLM edit)
   // Only reset if content changed externally (not from our own edits)
   useEffect(() => {
     // If the content prop matches our current edited content, this is just
@@ -876,7 +876,7 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     if (content === editedContent) {
       return;
     }
-    // External change (file reload or format) - push to undo stack so user can undo
+    // External change (file reload, format, or LLM edit) - push to undo stack so user can undo
     undoStackRef.current.push({
       content: editedContent,
       selectionStart: textareaRef.current?.selectionStart ?? 0,
@@ -890,7 +890,13 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     redoStackRef.current = [];
     setEditedContent(content);
     setPreviewContent(content);
-  }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Trigger auto-save for external content changes (e.g., LLM edits)
+    // Use setTimeout to defer until after React state update has flushed
+    if (autoSave && onAutoSave && filePath) {
+      setTimeout(() => onAutoSave(), 0);
+    }
+  }, [content, autoSave, onAutoSave, filePath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Report match index changes to parent (includes TOC matches in total)
   useEffect(() => {

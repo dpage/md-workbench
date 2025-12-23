@@ -7,6 +7,17 @@
 // See LICENSE.md for details.
 //
 
+import { AIOptions, DEFAULT_AI_OPTIONS } from './aiProviders';
+import { ChatOptions, DEFAULT_CHAT_OPTIONS } from './chatTypes';
+
+// Re-export AI types for convenience
+export type { AIOptions } from './aiProviders';
+export { DEFAULT_AI_OPTIONS } from './aiProviders';
+
+// Re-export Chat types for convenience
+export type { ChatOptions } from './chatTypes';
+export { DEFAULT_CHAT_OPTIONS } from './chatTypes';
+
 export type ThemeSetting = 'light' | 'dark' | 'system';
 export type MarkdownViewMode = 'preview' | 'edit' | 'split';
 export type SqlDialect = 'postgresql' | 'sqlite' | 'sql';
@@ -72,6 +83,8 @@ export interface Preferences {
   markdown: MarkdownOptions;
   formatting: FormattingOptions;
   editor: EditorOptions;
+  ai: AIOptions;
+  chat: ChatOptions;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -82,4 +95,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
   markdown: DEFAULT_MARKDOWN_OPTIONS,
   formatting: DEFAULT_FORMATTING_OPTIONS,
   editor: DEFAULT_EDITOR_OPTIONS,
+  ai: DEFAULT_AI_OPTIONS,
+  chat: DEFAULT_CHAT_OPTIONS,
 };

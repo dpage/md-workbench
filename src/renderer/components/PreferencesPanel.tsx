@@ -7,7 +7,7 @@
 // See LICENSE.md for details.
 //
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Preferences,
   ThemeSetting,
@@ -21,7 +21,21 @@ import {
   EditorOptions,
   DEFAULT_EDITOR_OPTIONS,
   DEFAULT_MARKDOWN_OPTIONS,
+  AIOptions,
+  DEFAULT_AI_OPTIONS,
+  ChatOptions,
+  DEFAULT_CHAT_OPTIONS,
 } from '../../shared/preferences';
+import {
+  AIProvider,
+  AIModel,
+  AIConnectionStatus,
+  AIKeyStatus,
+  PROVIDER_DISPLAY_NAMES,
+  PROVIDER_REQUIRES_API_KEY,
+  getModelFieldForProvider,
+  getSelectedModelForProvider,
+} from '../../shared/aiProviders';
 
 interface PreferencesPanelProps {
   isOpen: boolean;
@@ -30,7 +44,7 @@ interface PreferencesPanelProps {
   onPreferencesChange: (preferences: Preferences) => void;
 }
 
-type TabId = 'general' | 'appearance' | 'editor' | 'markdown' | 'formatting';
+type TabId = 'general' | 'appearance' | 'editor' | 'markdown' | 'formatting' | 'ai';
 
 const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
   isOpen,
@@ -41,11 +55,28 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
   const [activeTab, setActiveTab] = useState<TabId>('general');
   const [localPreferences, setLocalPreferences] = useState<Preferences>(preferences);
 
+  // AI-related state
+  const [aiKeyStatus, setAiKeyStatus] = useState<AIKeyStatus | null>(null);
+  const [aiConnectionStatus, setAiConnectionStatus] = useState<AIConnectionStatus | null>(null);
+  const [aiModels, setAiModels] = useState<AIModel[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // Track previous isOpen state to detect when panel opens
+  const wasOpenRef = useRef(false);
+
   // Sync local state with props when panel opens
   useEffect(() => {
     if (isOpen) {
       setLocalPreferences(preferences);
+      // Only reset AI state when panel first opens, not on every preferences change
+      if (!wasOpenRef.current) {
+        setAiConnectionStatus(null);
+        setAiModels([]);
+        setAiError(null);
+      }
     }
+    wasOpenRef.current = isOpen;
   }, [isOpen, preferences]);
 
   const handleChange = useCallback(
@@ -113,6 +144,171 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
     },
     [localPreferences, onPreferencesChange]
   );
+
+  const handleAIChange = useCallback(
+    <K extends keyof AIOptions>(key: K, value: AIOptions[K]) => {
+      const updated: Preferences = {
+        ...localPreferences,
+        ai: {
+          ...(localPreferences.ai || DEFAULT_AI_OPTIONS),
+          [key]: value,
+        },
+      };
+      setLocalPreferences(updated);
+      onPreferencesChange(updated);
+
+      // Reset connection status and models when provider or key file changes
+      if (key === 'provider' || key === 'anthropicKeyFile' || key === 'openaiKeyFile' || key === 'geminiKeyFile' || key === 'ollamaEndpoint' || key === 'dmrEndpoint') {
+        setAiConnectionStatus(null);
+        setAiModels([]);
+        setAiError(null);
+      }
+    },
+    [localPreferences, onPreferencesChange]
+  );
+
+  const handleChatChange = useCallback(
+    <K extends keyof ChatOptions>(key: K, value: ChatOptions[K]) => {
+      const updated: Preferences = {
+        ...localPreferences,
+        chat: {
+          ...(localPreferences.chat || DEFAULT_CHAT_OPTIONS),
+          [key]: value,
+        },
+      };
+      setLocalPreferences(updated);
+      onPreferencesChange(updated);
+    },
+    [localPreferences, onPreferencesChange]
+  );
+
+  // Get the key file path for the current provider
+  const getKeyFileForProvider = useCallback((provider: AIProvider, ai: AIOptions): string => {
+    switch (provider) {
+      case 'anthropic': return ai.anthropicKeyFile;
+      case 'openai': return ai.openaiKeyFile;
+      case 'gemini': return ai.geminiKeyFile;
+      default: return '';
+    }
+  }, []);
+
+  // Check API key status for cloud providers
+  const checkKeyStatus = useCallback(async () => {
+    const ai = localPreferences.ai || DEFAULT_AI_OPTIONS;
+    const provider = ai.provider;
+
+    if (!PROVIDER_REQUIRES_API_KEY[provider]) {
+      setAiKeyStatus(null);
+      return;
+    }
+
+    const keyFile = getKeyFileForProvider(provider, ai);
+    const status = await window.electronAPI?.getAIKeyStatus(provider, keyFile);
+    setAiKeyStatus(status || null);
+  }, [localPreferences.ai, getKeyFileForProvider]);
+
+  // Check key status when provider or key file changes
+  useEffect(() => {
+    if (isOpen && activeTab === 'ai') {
+      checkKeyStatus();
+    }
+  }, [isOpen, activeTab, localPreferences.ai?.provider, localPreferences.ai?.anthropicKeyFile, localPreferences.ai?.openaiKeyFile, localPreferences.ai?.geminiKeyFile, checkKeyStatus]);
+
+  // Test connection to the provider
+  const handleTestConnection = useCallback(async () => {
+    setAiLoading(true);
+    setAiError(null);
+    setAiConnectionStatus(null);
+    setAiModels([]);
+
+    try {
+      const ai = localPreferences.ai || DEFAULT_AI_OPTIONS;
+      const provider = ai.provider;
+      const savedModel = getSelectedModelForProvider(ai, provider);
+      const modelField = getModelFieldForProvider(provider);
+      const result = await window.electronAPI?.testAIConnection(provider, ai);
+
+      if (result) {
+        setAiConnectionStatus(result);
+
+        if (result.connected) {
+          // Fetch models on successful connection
+          const modelsResult = await window.electronAPI?.listAIModels(provider, ai);
+          if (modelsResult) {
+            if (modelsResult.error) {
+              setAiError(modelsResult.error);
+            } else {
+              setAiModels(modelsResult.models);
+
+              // Smart match the saved model for this provider
+              if (savedModel && modelsResult.models.length > 0) {
+                const matchedModel = await window.electronAPI?.smartMatchAIModel(
+                  provider,
+                  savedModel,
+                  modelsResult.models
+                );
+                if (matchedModel && matchedModel !== savedModel) {
+                  // Update to the matched model
+                  handleAIChange(modelField, matchedModel);
+                }
+              } else if (!savedModel && modelsResult.models.length > 0) {
+                // Auto-select first model if none selected for this provider
+                handleAIChange(modelField, modelsResult.models[0].id);
+              }
+            }
+          }
+        } else {
+          setAiError(result.error || 'Connection failed');
+        }
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setAiLoading(false);
+    }
+  }, [localPreferences.ai, handleAIChange]);
+
+  // Auto-test connection when AI tab opens or provider changes
+  const lastTestedProviderRef = useRef<AIProvider | null>(null);
+  useEffect(() => {
+    if (isOpen && activeTab === 'ai' && !aiLoading && aiModels.length === 0) {
+      const ai = localPreferences.ai || DEFAULT_AI_OPTIONS;
+      const provider = ai.provider;
+      const savedModel = getSelectedModelForProvider(ai, provider);
+
+      // Auto-test if:
+      // 1. Provider changed from last tested provider, OR
+      // 2. First time opening and there's a saved model for this provider
+      const providerChanged = lastTestedProviderRef.current !== null && lastTestedProviderRef.current !== provider;
+      const firstOpenWithSavedModel = lastTestedProviderRef.current === null && savedModel;
+
+      if (providerChanged || firstOpenWithSavedModel) {
+        lastTestedProviderRef.current = provider;
+        handleTestConnection();
+      }
+    }
+    if (!isOpen) {
+      lastTestedProviderRef.current = null;
+    }
+  }, [isOpen, activeTab, localPreferences.ai, aiModels.length, aiLoading, handleTestConnection]);
+
+  // Browse for key file
+  const handleBrowseKeyFile = useCallback(async (provider: AIProvider) => {
+    const result = await window.electronAPI?.browseKeyFile();
+    if (result && !result.canceled && result.filePath) {
+      switch (provider) {
+        case 'anthropic':
+          handleAIChange('anthropicKeyFile', result.filePath);
+          break;
+        case 'openai':
+          handleAIChange('openaiKeyFile', result.filePath);
+          break;
+        case 'gemini':
+          handleAIChange('geminiKeyFile', result.filePath);
+          break;
+      }
+    }
+  }, [handleAIChange]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -196,6 +392,12 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
             onClick={() => setActiveTab('formatting')}
           >
             Formatting
+          </button>
+          <button
+            className={`preferences-tab ${activeTab === 'ai' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ai')}
+          >
+            AI
           </button>
         </div>
 
@@ -572,6 +774,177 @@ const PreferencesPanel: React.FC<PreferencesPanelProps> = ({
                 </label>
                 <p className="preferences-description">
                   Convert SQL keywords to uppercase when formatting.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'ai' && (
+            <div className="preferences-section">
+              <p className="preferences-section-description">
+                Configure AI model provider for intelligent features.
+              </p>
+
+              <div className="preferences-group">
+                <label className="preferences-label">AI Provider</label>
+                <select
+                  className="preferences-select"
+                  value={localPreferences.ai?.provider ?? 'anthropic'}
+                  onChange={(e) => handleAIChange('provider', e.target.value as AIProvider)}
+                >
+                  {(Object.keys(PROVIDER_DISPLAY_NAMES) as AIProvider[]).map((provider) => (
+                    <option key={provider} value={provider}>
+                      {PROVIDER_DISPLAY_NAMES[provider]}
+                    </option>
+                  ))}
+                </select>
+                <p className="preferences-description">
+                  Select your preferred AI model provider.
+                </p>
+              </div>
+
+              {/* Cloud provider authentication (Anthropic, OpenAI, Gemini) */}
+              {PROVIDER_REQUIRES_API_KEY[localPreferences.ai?.provider ?? 'anthropic'] && (
+                <div className="preferences-group">
+                  <label className="preferences-label">API Key File</label>
+                  <div className="preferences-input-with-button">
+                    <input
+                      type="text"
+                      className="preferences-input"
+                      value={
+                        localPreferences.ai?.provider === 'anthropic'
+                          ? localPreferences.ai?.anthropicKeyFile ?? DEFAULT_AI_OPTIONS.anthropicKeyFile
+                          : localPreferences.ai?.provider === 'openai'
+                          ? localPreferences.ai?.openaiKeyFile ?? DEFAULT_AI_OPTIONS.openaiKeyFile
+                          : localPreferences.ai?.geminiKeyFile ?? DEFAULT_AI_OPTIONS.geminiKeyFile
+                      }
+                      onChange={(e) => {
+                        const provider = localPreferences.ai?.provider ?? 'anthropic';
+                        switch (provider) {
+                          case 'anthropic':
+                            handleAIChange('anthropicKeyFile', e.target.value);
+                            break;
+                          case 'openai':
+                            handleAIChange('openaiKeyFile', e.target.value);
+                            break;
+                          case 'gemini':
+                            handleAIChange('geminiKeyFile', e.target.value);
+                            break;
+                        }
+                      }}
+                      placeholder="~/.anthropic-api-key"
+                    />
+                    <button
+                      className="preferences-button"
+                      onClick={() => handleBrowseKeyFile(localPreferences.ai?.provider ?? 'anthropic')}
+                    >
+                      Browse
+                    </button>
+                    {aiKeyStatus?.available && (
+                      <span className="preferences-inline-check" title={
+                        aiKeyStatus.source === 'file'
+                          ? `Key found in file: ${aiKeyStatus.filePath}`
+                          : `Key found in environment: ${aiKeyStatus.envVar}`
+                      }>✓</span>
+                    )}
+                  </div>
+                  <p className="preferences-description">
+                    Path to a file containing your API key. Falls back to environment variable if file not found.
+                  </p>
+                </div>
+              )}
+
+              {/* Local provider endpoint (Ollama, DMR) */}
+              {!PROVIDER_REQUIRES_API_KEY[localPreferences.ai?.provider ?? 'anthropic'] && (
+                <div className="preferences-group">
+                  <label className="preferences-label">Endpoint URL</label>
+                  <input
+                    type="text"
+                    className="preferences-input preferences-input-full-width"
+                    value={
+                      localPreferences.ai?.provider === 'ollama'
+                        ? localPreferences.ai?.ollamaEndpoint ?? DEFAULT_AI_OPTIONS.ollamaEndpoint
+                        : localPreferences.ai?.dmrEndpoint ?? DEFAULT_AI_OPTIONS.dmrEndpoint
+                    }
+                    onChange={(e) => {
+                      const provider = localPreferences.ai?.provider ?? 'ollama';
+                      if (provider === 'ollama') {
+                        handleAIChange('ollamaEndpoint', e.target.value);
+                      } else {
+                        handleAIChange('dmrEndpoint', e.target.value);
+                      }
+                    }}
+                    placeholder="http://localhost:11434"
+                  />
+                  <p className="preferences-description">
+                    URL of the local model server.
+                  </p>
+                </div>
+              )}
+
+              {/* Test connection button with inline status */}
+              <div className="preferences-group">
+                <div className="preferences-button-row">
+                  <button
+                    className="preferences-button preferences-button-primary"
+                    onClick={handleTestConnection}
+                    disabled={aiLoading}
+                  >
+                    {aiLoading ? 'Testing...' : 'Test Connection'}
+                  </button>
+                  {aiConnectionStatus?.connected && (
+                    <span className="preferences-inline-check">✓</span>
+                  )}
+                  {aiConnectionStatus && !aiConnectionStatus.connected && (
+                    <span className="preferences-inline-error" title={aiConnectionStatus.error || 'Connection failed'}>✗</span>
+                  )}
+                  {aiError && aiConnectionStatus?.connected && (
+                    <span className="preferences-inline-error" title={aiError}>!</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Model selection - always shown, disabled when no models */}
+              <div className="preferences-group">
+                <label className="preferences-label">Model</label>
+                <select
+                  className="preferences-select"
+                  value={getSelectedModelForProvider(localPreferences.ai || DEFAULT_AI_OPTIONS, localPreferences.ai?.provider ?? 'anthropic') ?? ''}
+                  onChange={(e) => handleAIChange(getModelFieldForProvider(localPreferences.ai?.provider ?? 'anthropic'), e.target.value || null)}
+                  disabled={aiModels.length === 0}
+                >
+                  {aiModels.length === 0 ? (
+                    <option value="">
+                      {aiLoading ? 'Loading models...' : 'Test connection to load models'}
+                    </option>
+                  ) : (
+                    <>
+                      <option value="">Select a model...</option>
+                      {aiModels.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.displayName}
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+                <p className="preferences-description">
+                  Select the AI model to use for intelligent features.
+                </p>
+              </div>
+
+              {/* Show Tool Usage toggle */}
+              <div className="preferences-group">
+                <label className="preferences-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={localPreferences.chat?.showToolUsage ?? false}
+                    onChange={(e) => handleChatChange('showToolUsage', e.target.checked)}
+                  />
+                  <span>Show Tool Usage</span>
+                </label>
+                <p className="preferences-description">
+                  Display tool calls and results in the AI chat panel.
                 </p>
               </div>
             </div>
