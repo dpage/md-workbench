@@ -1695,7 +1695,7 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
       <div className="split-editor-content">
         <div
           ref={sourceRef}
-          className="split-panel split-panel-source"
+          className={`split-panel split-panel-source ${!supportsRenderedView ? 'edit-only' : ''}`}
           style={{ width: supportsRenderedView ? `${splitRatio * 100}%` : '100%' }}
         >
           <div className="editor-toolbars">

@@ -1904,13 +1904,9 @@ body {
   overflow-x: hidden;
 }
 
-/* Hide scrollbar on textarea in soft-wrap mode to match overlay width */
-.source-editor.soft-wrap {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
-}
-
-.source-editor.soft-wrap::-webkit-scrollbar {
+/* In split mode, hide vertical scrollbar (preview pane provides navigation) */
+/* Keep horizontal scrollbar for long lines in hard wrap mode */
+.split-panel-source:not(.edit-only) .source-editor::-webkit-scrollbar:vertical {
   display: none;
 }
 
