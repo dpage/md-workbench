@@ -628,7 +628,6 @@ body {
 
 .markdown-viewer::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 5px;
   border: 2px solid var(--scrollbar-track);
 }
 
@@ -817,6 +816,28 @@ body {
 
 .markdown-content .syntax-highlighted code span {
   background: none !important;
+}
+
+/* Scrollbar styling for syntax highlighted code blocks */
+.markdown-content .syntax-highlighted > div::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.markdown-content .syntax-highlighted > div::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.markdown-content .syntax-highlighted > div::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+
+.markdown-content .syntax-highlighted > div::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.markdown-content .syntax-highlighted > div::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
 }
 
 .markdown-content table {
@@ -1511,7 +1532,6 @@ body {
 
 .source-viewer::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 5px;
   border: 2px solid var(--scrollbar-track);
 }
 
@@ -1553,7 +1573,6 @@ body {
 
 .source-content::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 5px;
   border: 2px solid var(--scrollbar-track);
 }
 
@@ -1662,7 +1681,6 @@ body {
 
 .source-panel-content::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 5px;
   border: 2px solid var(--scrollbar-track);
 }
 
@@ -1885,7 +1903,6 @@ body {
 
 .source-editor::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 5px;
   border: 2px solid var(--scrollbar-track);
 }
 
@@ -2804,7 +2821,7 @@ body {
 
 /* Folder panel scrollbar */
 .folder-panel-content::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .folder-panel-content::-webkit-scrollbar-track {
@@ -2813,7 +2830,6 @@ body {
 
 .folder-panel-content::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-thumb);
-  border-radius: 4px;
 }
 
 .folder-panel-content::-webkit-scrollbar-thumb:hover {
@@ -4252,7 +4268,6 @@ body {
 
 .chat-messages::-webkit-scrollbar {
   width: 6px;
-  border-radius: 2px;
   border: 2px solid var(--scrollbar-track)
 }
 
@@ -4262,7 +4277,6 @@ body {
 
 .chat-messages::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-thumb);
-  border-radius: 4px;
 }
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
@@ -4450,6 +4464,28 @@ body {
 
 .chat-message-content .syntax-highlighted code span {
   background: none !important;
+}
+
+/* Scrollbar styling for syntax highlighted code blocks in chat */
+.chat-message-content .syntax-highlighted > div::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.chat-message-content .syntax-highlighted > div::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.chat-message-content .syntax-highlighted > div::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+
+.chat-message-content .syntax-highlighted > div::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.chat-message-content .syntax-highlighted > div::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
 }
 
 .chat-message-content ul,
@@ -4708,17 +4744,15 @@ body {
 }
 
 .chat-input::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .chat-input::-webkit-scrollbar-track {
   background-color: var(--scrollbar-track);
-  border-radius: 4px;
 }
 
 .chat-input::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-thumb);
-  border-radius: 4px;
 }
 
 .chat-input::-webkit-scrollbar-thumb:hover {
