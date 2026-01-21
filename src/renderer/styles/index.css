@@ -806,6 +806,8 @@ body {
 .markdown-content .syntax-highlighted {
   margin: 0;
   overflow-x: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .markdown-content .syntax-highlighted code {
@@ -4387,6 +4389,67 @@ body {
   background: none;
   border: none;
   padding: 0;
+}
+
+/* Code block wrapper in chat - mirrors .markdown-content styles */
+.chat-message-content .code-block-wrapper {
+  margin: 8px 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: var(--code-bg);
+}
+
+.chat-message-content .code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  min-height: 28px;
+}
+
+.chat-message-content .code-block-language {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: lowercase;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.chat-message-content .code-block-copy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.chat-message-content .code-block-copy:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.chat-message-content .syntax-highlighted {
+  margin: 0;
+  overflow-x: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.chat-message-content .syntax-highlighted code {
+  background: none !important;
+  padding: 0;
+}
+
+.chat-message-content .syntax-highlighted code span {
+  background: none !important;
 }
 
 .chat-message-content ul,
