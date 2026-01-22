@@ -21,9 +21,14 @@ const config = {
     "!dist/test/**/*",
     "!dist/shared/**/*",
     "package.json",
-    "!node_modules/**/*"
+    "!node_modules/**/*",
+    "node_modules/better-sqlite3/**/*",
+    "node_modules/bindings/**/*",
+    "node_modules/file-uri-to-path/**/*"
   ],
-  asarUnpack: [],
+  asarUnpack: [
+    "node_modules/better-sqlite3/**/*"
+  ],
   directories: {
     output: "release"
   },
