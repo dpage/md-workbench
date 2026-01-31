@@ -19,6 +19,7 @@ import FolderPanel from './components/FolderPanel';
 import PreferencesPanel from './components/PreferencesPanel';
 import StatusBar from './components/StatusBar';
 import ChatPanel from './components/ChatPanel';
+import AdBanner from './components/AdBanner';
 import { Preferences, DEFAULT_PREFERENCES, MarkdownViewMode, DEFAULT_MARKDOWN_OPTIONS } from '../shared/preferences';
 import { AIProvider, AIOptions, AIModel, AIConnectionStatus, AIKeyStatus } from '../shared/aiProviders';
 import { FileType } from '../shared/fileTypes';
@@ -173,6 +174,12 @@ declare global {
       onChatComplete: (callback: (event: ChatCompleteEvent) => void) => () => void;
       onChatError: (callback: (event: ChatErrorEvent) => void) => () => void;
       onChatContentUpdate: (callback: (event: ChatContentUpdateEvent) => void) => () => void;
+      // In-app purchase
+      getAdFreeStatus: () => Promise<boolean>;
+      purchaseRemoveAds: () => Promise<{ success: boolean; error?: string }>;
+      restorePurchases: () => Promise<{ success: boolean; adFree: boolean; error?: string }>;
+      // App info
+      isPackaged: boolean;
     };
   }
 }
@@ -987,6 +994,20 @@ const App: React.FC = () => {
   }, [focusEditor]);
 
   // Chat panel handlers
+  const handlePurchaseRemoveAds = useCallback(async () => {
+    const result = await window.electronAPI?.purchaseRemoveAds();
+    if (result?.success) {
+      setPreferences(prev => ({ ...prev, ads: { ...prev.ads, adFree: true } }));
+    }
+  }, []);
+
+  const handleRestorePurchases = useCallback(async () => {
+    const result = await window.electronAPI?.restorePurchases();
+    if (result?.success && result.adFree) {
+      setPreferences(prev => ({ ...prev, ads: { ...prev.ads, adFree: true } }));
+    }
+  }, []);
+
   const handleToggleChat = useCallback(() => {
     setShowChat(prev => !prev);
   }, []);
@@ -1597,6 +1618,11 @@ const App: React.FC = () => {
           lineEnding={activeTab.content.includes('\r\n') ? 'CRLF' : 'LF'}
         />
       )}
+      <AdBanner
+        adFree={preferences.ads?.adFree ?? false}
+        onPurchaseRemoveAds={handlePurchaseRemoveAds}
+        onRestorePurchases={handleRestorePurchases}
+      />
       <HelpPanel isOpen={showHelp} onClose={handleCloseHelp} />
       <PreferencesPanel
         isOpen={showPreferences}
@@ -1649,7 +1675,7 @@ const App: React.FC = () => {
       )}
       {activeTab && (
         <button
-          className={`chat-fab ${showChat ? 'active' : ''} ${(preferences.editor?.showStatusBar ?? true) ? 'with-status-bar' : ''}`}
+          className={`chat-fab ${showChat ? 'active' : ''} ${(preferences.editor?.showStatusBar ?? true) ? 'with-status-bar' : ''} ${!(preferences.ads?.adFree ?? false) ? 'with-ad-banner' : ''}`}
           onClick={handleToggleChat}
           title={showChat ? 'Hide AI Chat' : 'Show AI Chat'}
           aria-label={showChat ? 'Hide AI Chat' : 'Show AI Chat'}

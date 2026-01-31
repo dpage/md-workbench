@@ -411,4 +411,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('chat-content-update', listener);
     return () => ipcRenderer.removeListener('chat-content-update', listener);
   },
+
+  // In-app purchase
+  getAdFreeStatus: () =>
+    ipcRenderer.invoke('get-ad-free-status') as Promise<boolean>,
+  purchaseRemoveAds: () =>
+    ipcRenderer.invoke('purchase-remove-ads') as Promise<{ success: boolean; error?: string }>,
+  restorePurchases: () =>
+    ipcRenderer.invoke('restore-purchases') as Promise<{ success: boolean; adFree: boolean; error?: string }>,
+
+  // App info
+  isPackaged: !process.argv.includes('--dev') && !process.defaultApp,
 });

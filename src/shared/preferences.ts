@@ -8,11 +8,16 @@
 //
 
 import { AIOptions, DEFAULT_AI_OPTIONS } from './aiProviders';
+import { AdsOptions, DEFAULT_ADS_OPTIONS } from './adsOptions';
 import { ChatOptions, DEFAULT_CHAT_OPTIONS } from './chatTypes';
 
 // Re-export AI types for convenience
 export type { AIOptions } from './aiProviders';
 export { DEFAULT_AI_OPTIONS } from './aiProviders';
+
+// Re-export Ads types for convenience
+export type { AdsOptions } from './adsOptions';
+export { DEFAULT_ADS_OPTIONS } from './adsOptions';
 
 // Re-export Chat types for convenience
 export type { ChatOptions } from './chatTypes';
@@ -83,6 +88,7 @@ export interface Preferences {
   markdown: MarkdownOptions;
   formatting: FormattingOptions;
   editor: EditorOptions;
+  ads: AdsOptions;
   ai: AIOptions;
   chat: ChatOptions;
 }
@@ -95,6 +101,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   markdown: DEFAULT_MARKDOWN_OPTIONS,
   formatting: DEFAULT_FORMATTING_OPTIONS,
   editor: DEFAULT_EDITOR_OPTIONS,
+  ads: DEFAULT_ADS_OPTIONS,
   ai: DEFAULT_AI_OPTIONS,
   chat: DEFAULT_CHAT_OPTIONS,
 };

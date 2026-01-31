@@ -32,6 +32,7 @@ import {
   DEFAULT_MARKDOWN_OPTIONS,
   DEFAULT_FORMATTING_OPTIONS,
   DEFAULT_EDITOR_OPTIONS,
+  DEFAULT_ADS_OPTIONS,
   DEFAULT_AI_OPTIONS,
   DEFAULT_CHAT_OPTIONS,
 } from '../shared/preferences';
@@ -51,6 +52,11 @@ import {
   getMessageCount,
   needsCompaction,
 } from './chatDatabase';
+import {
+  isAdFree,
+  purchaseRemoveAds,
+  restorePurchases,
+} from './purchaseService';
 import { streamChat, abortChat } from './chatService';
 import { executeTool, ToolContext } from './toolExecutor';
 import type { ChatMessage, ChatStreamRequest, ToolDefinition, ToolCall, ToolResult } from '../shared/chatTypes';
@@ -148,6 +154,10 @@ function getPreferencesWithDefaults(): Preferences {
     editor: {
       ...DEFAULT_EDITOR_OPTIONS,
       ...(stored.editor || {}),
+    },
+    ads: {
+      ...DEFAULT_ADS_OPTIONS,
+      ...(stored.ads || {}),
     },
     ai: {
       ...DEFAULT_AI_OPTIONS,
@@ -1064,6 +1074,19 @@ ipcMain.handle('set-preferences', (_, preferences: Preferences) => {
 
 ipcMain.handle('show-preferences', () => {
   mainWindow?.webContents.send('show-preferences');
+});
+
+// In-app purchase handlers
+ipcMain.handle('get-ad-free-status', () => {
+  return isAdFree();
+});
+
+ipcMain.handle('purchase-remove-ads', async () => {
+  return purchaseRemoveAds();
+});
+
+ipcMain.handle('restore-purchases', async () => {
+  return restorePurchases();
 });
 
 // File watcher handlers
