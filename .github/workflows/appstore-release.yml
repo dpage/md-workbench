@@ -101,6 +101,8 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CSC_LINK: ${{ secrets.APPSTORE_APP_CERTIFICATE_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.APPSTORE_APP_CERTIFICATE_PASSWORD }}
+          CSC_INSTALLER_LINK: ${{ secrets.APPSTORE_INSTALLER_CERTIFICATE_BASE64 }}
+          CSC_INSTALLER_KEY_PASSWORD: ${{ secrets.APPSTORE_INSTALLER_CERTIFICATE_PASSWORD }}
           CSC_KEYCHAIN: ${{ runner.temp }}/app-signing.keychain-db
           USE_HARD_LINKS: false
         run: |
