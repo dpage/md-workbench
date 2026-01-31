@@ -2,10 +2,9 @@
 node_modules/
 
 # Build output
-dist/
-out/
-build/
-release/
+/dist/
+/out/
+/release/
 
 # Electron packaged applications
 *.app
