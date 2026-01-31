@@ -23,6 +23,11 @@ const config = {
     "package.json",
     "!node_modules/**/*",
     "node_modules/better-sqlite3/**/*",
+    "!node_modules/better-sqlite3/deps/**/*",
+    "!node_modules/better-sqlite3/build/Release/obj/**/*",
+    "!node_modules/better-sqlite3/build/deps/**/*",
+    "!node_modules/better-sqlite3/src/**/*",
+    "!node_modules/better-sqlite3/bin/**/*",
     "node_modules/bindings/**/*",
     "node_modules/file-uri-to-path/**/*"
   ],

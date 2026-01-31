@@ -701,10 +701,14 @@ function createMenu(): void {
           },
         },
         { type: 'separator' },
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { role: 'toggleDevTools' },
-        { type: 'separator' },
+        ...(process.env.NODE_ENV === 'development'
+          ? [
+              { role: 'reload' as const },
+              { role: 'forceReload' as const },
+              { role: 'toggleDevTools' as const },
+              { type: 'separator' as const },
+            ]
+          : []),
         { role: 'resetZoom' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
@@ -913,7 +917,7 @@ function createWindow(): void {
     const csp =
       process.env.NODE_ENV === 'development'
         ? '' // Disable CSP in development for webpack-dev-server hot reload
-        : "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: local-file:; font-src 'self' data:;";
+        : "default-src 'self'; script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://www.googletagservices.com https://ep1.adtrafficquality.google https://ep2.adtrafficquality.google; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: local-file:; font-src 'self' data:; frame-src https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://www.google.com; connect-src 'self' https://pagead2.googlesyndication.com https://*.google.com https://ep1.adtrafficquality.google https://ep2.adtrafficquality.google;";
 
     callback({
       responseHeaders: {
