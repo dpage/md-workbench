@@ -218,6 +218,133 @@ md-workbench/
 - `npm run lint` - Run ESLint
 - `npm run package` - Package the application
 
+## Mac App Store Distribution
+
+Markdown Workbench can be built and submitted to the Mac App Store using the
+included GitHub Actions workflow. This section covers the full setup.
+
+### Prerequisites
+
+- An [Apple Developer Program](https://developer.apple.com/programs/) membership
+  ($99/year)
+- A Mac with Xcode installed (for generating certificates and provisioning
+  profiles)
+- Admin access to the GitHub repository (for configuring secrets)
+
+### 1. Apple Developer Certificates
+
+You need two certificates from the
+[Apple Developer portal](https://developer.apple.com/account/resources/certificates/list):
+
+1. **3rd Party Mac Developer Application** — signs the app itself
+2. **3rd Party Mac Developer Installer** — signs the `.pkg` installer
+
+To create each certificate:
+
+1. Open **Keychain Access** on your Mac
+2. Go to **Keychain Access → Certificate Assistant → Request a Certificate From
+   a Certificate Authority**
+3. Enter your email, select **Saved to disk**, and save the `.certSigningRequest`
+   file
+4. In the Apple Developer portal, go to **Certificates → +**
+5. Select the appropriate certificate type and upload your CSR
+6. Download the `.cer` file and double-click to install it in Keychain Access
+
+To export as `.p12` for GitHub Actions:
+
+1. In **Keychain Access**, find the certificate under **My Certificates**
+2. Right-click → **Export** → save as `.p12` with a password
+3. Base64-encode the file:
+
+```bash
+base64 -i AppCertificate.p12 | pbcopy
+```
+
+Repeat for both the Application and Installer certificates.
+
+### 2. Provisioning Profile
+
+1. In the Apple Developer portal, go to
+   **Profiles → +**
+2. Select **Mac App Store → Distribution**
+3. Choose the App ID `page.conx.mdworkbench` (create it under **Identifiers**
+   first if it doesn't exist)
+4. Select your "3rd Party Mac Developer Application" certificate
+5. Download the `.provisionprofile` file
+6. Base64-encode it:
+
+```bash
+base64 -i profile.provisionprofile | pbcopy
+```
+
+### 3. App Store Connect Setup
+
+1. Log in to [App Store Connect](https://appstoreconnect.apple.com/)
+2. Go to **Apps → +** and create a new app:
+   - Platform: **macOS**
+   - Bundle ID: `page.conx.mdworkbench`
+   - Name: **Markdown Workbench**
+3. To set up the "Remove Ads" in-app purchase:
+   - Go to the app → **In-App Purchases → +**
+   - Type: **Non-Consumable**
+   - Reference Name: `Remove Ads`
+   - Product ID: `page.conx.mdworkbench.removeads`
+   - Set pricing and add a localised display name/description
+
+### 4. App Store Connect API Key
+
+This is used by the workflow to upload builds automatically.
+
+1. In App Store Connect, go to **Users and Access → Integrations → App Store
+   Connect API**
+2. Click **+** to generate a new key
+3. Give it **App Manager** or **Developer** role
+4. Download the `.p8` private key file (you can only download it once)
+5. Note the **Key ID** and **Issuer ID** shown on the page
+6. Base64-encode the key:
+
+```bash
+base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
+```
+
+### 5. GitHub Secrets
+
+Go to your repository → **Settings → Secrets and variables → Actions** and add
+these secrets:
+
+| Secret | Description |
+|--------|-------------|
+| `APPSTORE_APP_CERTIFICATE_BASE64` | Base64-encoded "3rd Party Mac Developer Application" `.p12` |
+| `APPSTORE_APP_CERTIFICATE_PASSWORD` | Password for the Application `.p12` |
+| `APPSTORE_INSTALLER_CERTIFICATE_BASE64` | Base64-encoded "3rd Party Mac Developer Installer" `.p12` |
+| `APPSTORE_INSTALLER_CERTIFICATE_PASSWORD` | Password for the Installer `.p12` |
+| `APPSTORE_PROVISIONING_PROFILE_BASE64` | Base64-encoded `.provisionprofile` |
+| `APPLE_TEAM_ID` | Your 10-character Apple Team ID |
+| `APPSTORE_API_KEY_ID` | App Store Connect API Key ID |
+| `APPSTORE_API_ISSUER_ID` | App Store Connect API Issuer ID |
+| `APPSTORE_API_KEY_BASE64` | Base64-encoded `.p8` API private key |
+
+### 6. Running the Workflow
+
+1. Go to **Actions → App Store Release** in your GitHub repository
+2. Click **Run workflow**
+3. Enter the version number (e.g., `1.0.0`)
+4. Click **Run workflow**
+
+The workflow will build the app, sign it, upload it to App Store Connect, and
+save the `.pkg` as a GitHub artifact.
+
+### Local MAS Build
+
+To build the Mac App Store package locally (requires certificates installed in
+your Keychain):
+
+```bash
+npm run package:mac-mas
+```
+
+The output will be in the `release/` directory.
+
 ## License
 
 This project is licensed under the PostgreSQL License. See the [LICENSE.md](LICENSE.md) file for details.

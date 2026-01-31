@@ -1,0 +1,159 @@
+name: App Store Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+env:
+  APP_NAME: Markdown Workbench
+  BUNDLE_ID: page.conx.mdworkbench
+
+jobs:
+  build:
+    name: Build App Store Release
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Update version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          npm version "$VERSION" --no-git-tag-version
+          echo "Updated package.json to version $VERSION"
+
+      - name: Build
+        run: npm run build
+
+      - name: Install certificates
+        env:
+          APP_CERTIFICATE_BASE64: ${{ secrets.APPSTORE_APP_CERTIFICATE_BASE64 }}
+          APP_CERTIFICATE_PASSWORD: ${{ secrets.APPSTORE_APP_CERTIFICATE_PASSWORD }}
+          INSTALLER_CERTIFICATE_BASE64: ${{ secrets.APPSTORE_INSTALLER_CERTIFICATE_BASE64 }}
+          INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.APPSTORE_INSTALLER_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}
+        run: |
+          # Create variables
+          APP_CERT_PATH=$RUNNER_TEMP/app_certificate.p12
+          INSTALLER_CERT_PATH=$RUNNER_TEMP/installer_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+
+          # Decode certificates
+          echo -n "$APP_CERTIFICATE_BASE64" | base64 --decode -o $APP_CERT_PATH
+          echo -n "$INSTALLER_CERTIFICATE_BASE64" | base64 --decode -o $INSTALLER_CERT_PATH
+
+          # Create temporary keychain
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificates to keychain
+          security import $APP_CERT_PATH -P "$APP_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security import $INSTALLER_CERT_PATH -P "$INSTALLER_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+          # Verify certificates
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning $KEYCHAIN_PATH
+
+      - name: Install provisioning profile
+        env:
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.APPSTORE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          # Create Provisioning Profiles directory
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+
+          # Decode and install provisioning profile
+          PROFILE_PATH=$RUNNER_TEMP/appstore.provisionprofile
+          echo -n "$PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+
+          # Get the UUID from the profile
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< $(/usr/bin/security cms -D -i "$PROFILE_PATH"))
+          echo "Installed provisioning profile with UUID: $PROFILE_UUID"
+
+          # Copy to Provisioning Profiles directory with UUID name
+          cp "$PROFILE_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.provisionprofile
+
+      - name: Package for Mac App Store
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_LINK: ${{ secrets.APPSTORE_APP_CERTIFICATE_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPSTORE_APP_CERTIFICATE_PASSWORD }}
+          CSC_KEYCHAIN: ${{ runner.temp }}/app-signing.keychain-db
+        run: |
+          npx electron-builder --mac \
+            --config electron-builder.config.js \
+            --config.mac.target=mas \
+            --config.mac.type=distribution
+
+          echo "Build output:"
+          ls -la release/*.pkg 2>/dev/null || ls -la release/mas*/ 2>/dev/null || ls -la release/
+
+      - name: Upload to App Store Connect
+        env:
+          APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+          APPSTORE_API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+          APPSTORE_API_KEY_BASE64: ${{ secrets.APPSTORE_API_KEY_BASE64 }}
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+
+          # Check if API key secrets are configured
+          if [ -z "$APPSTORE_API_KEY_BASE64" ] || [ -z "$APPSTORE_API_KEY_ID" ] || [ -z "$APPSTORE_API_ISSUER_ID" ]; then
+            echo "App Store Connect API credentials not configured"
+            echo "Required secrets: APPSTORE_API_KEY_ID, APPSTORE_API_ISSUER_ID, APPSTORE_API_KEY_BASE64"
+            exit 1
+          fi
+
+          # Decode API key
+          mkdir -p ~/.private_keys
+          mkdir -p ~/private_keys
+          echo -n "$APPSTORE_API_KEY_BASE64" | base64 --decode > ~/.private_keys/AuthKey_$APPSTORE_API_KEY_ID.p8
+          cp ~/.private_keys/AuthKey_$APPSTORE_API_KEY_ID.p8 ~/private_keys/
+
+          # Find the pkg file
+          PKG_FILE=$(find release -name "*.pkg" -type f | head -1)
+          if [ -z "$PKG_FILE" ]; then
+            echo "No .pkg file found in release directory"
+            ls -la release/
+            exit 1
+          fi
+          echo "Uploading $PKG_FILE"
+
+          # Upload using xcrun altool
+          xcrun altool --upload-app \
+            --type macos \
+            --file "$PKG_FILE" \
+            --apiKey "$APPSTORE_API_KEY_ID" \
+            --apiIssuer "$APPSTORE_API_ISSUER_ID"
+
+          echo "Uploaded to App Store Connect"
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MarkdownWorkbench-${{ github.event.inputs.version }}-AppStore
+          path: release/*.pkg
+          retention-days: 30
