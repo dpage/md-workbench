@@ -103,6 +103,7 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.APPSTORE_APP_CERTIFICATE_PASSWORD }}
           CSC_KEYCHAIN: ${{ runner.temp }}/app-signing.keychain-db
         run: |
+          rm -rf release/
           npx electron-builder --mac \
             --config electron-builder.config.js \
             --config.mac.target=mas \
