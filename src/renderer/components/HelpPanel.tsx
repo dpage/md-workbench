@@ -301,8 +301,81 @@ const HelpContent: React.FC = () => (
             <td><kbd>Cmd+,</kbd></td>
             <td><kbd>Ctrl+,</kbd></td>
           </tr>
+          <tr>
+            <td>Open Folder</td>
+            <td><kbd>Cmd+Shift+O</kbd></td>
+            <td><kbd>Ctrl+Shift+O</kbd></td>
+          </tr>
+          <tr>
+            <td>Preview Mode</td>
+            <td><kbd>Cmd+1</kbd></td>
+            <td><kbd>Ctrl+1</kbd></td>
+          </tr>
+          <tr>
+            <td>Edit Mode</td>
+            <td><kbd>Cmd+2</kbd></td>
+            <td><kbd>Ctrl+2</kbd></td>
+          </tr>
+          <tr>
+            <td>Split Mode</td>
+            <td><kbd>Cmd+3</kbd></td>
+            <td><kbd>Ctrl+3</kbd></td>
+          </tr>
+          <tr>
+            <td>Zoom In</td>
+            <td><kbd>Cmd+=</kbd></td>
+            <td><kbd>Ctrl+=</kbd></td>
+          </tr>
+          <tr>
+            <td>Zoom Out</td>
+            <td><kbd>Cmd+-</kbd></td>
+            <td><kbd>Ctrl+-</kbd></td>
+          </tr>
+          <tr>
+            <td>Reset Zoom</td>
+            <td><kbd>Cmd+0</kbd></td>
+            <td><kbd>Ctrl+0</kbd></td>
+          </tr>
         </tbody>
       </table>
+    </section>
+
+    <section>
+      <h2>AI Chat Assistant</h2>
+      <p>
+        Markdown Workbench includes a built-in AI chat assistant that can read, analyse,
+        and optionally edit your documents. Click the chat button in the bottom-right corner
+        to open the chat panel.
+      </p>
+      <ul>
+        <li><strong>Context-aware</strong> — The AI can read the current file content and any selected text</li>
+        <li><strong>Per-file conversations</strong> — Chat history is saved separately for each file</li>
+        <li><strong>Allow edits</strong> — Enable the &quot;Allow edits&quot; toggle in the chat panel to let the AI make changes to your document via find-and-replace</li>
+        <li><strong>Clear conversation</strong> — Use the clear button in the chat header to reset the conversation for the current file</li>
+      </ul>
+      <h3>Supported AI Providers</h3>
+      <p>Configure your preferred provider in <strong>Preferences → AI</strong>:</p>
+      <ul>
+        <li><strong>Anthropic (Claude)</strong> — Requires an API key file</li>
+        <li><strong>OpenAI</strong> — Requires an API key file</li>
+        <li><strong>Google Gemini</strong> — Requires an API key file</li>
+        <li><strong>Ollama</strong> — Connect to a local Ollama instance</li>
+        <li><strong>Docker Model Runner</strong> — Connect to Docker Model Runner</li>
+      </ul>
+      <p>Use the <strong>Test Connection</strong> button in AI preferences to verify your setup.</p>
+    </section>
+
+    <section>
+      <h2>Status Bar</h2>
+      <p>The status bar at the bottom of the window shows information about the current file. Some elements are interactive:</p>
+      <ul>
+        <li><strong>File path</strong> — Full path of the current file</li>
+        <li><strong>Cursor position</strong> — Shows &quot;Ln X, Col Y&quot;; click to go to a specific line</li>
+        <li><strong>Line count</strong> — Total number of lines; click to go to a specific line</li>
+        <li><strong>Line endings</strong> — Shows LF or CRLF; click to change</li>
+        <li><strong>File type</strong> — The detected file type</li>
+      </ul>
+      <p>The status bar can be toggled in <strong>Preferences → Editor</strong>.</p>
     </section>
 
     <section>
@@ -311,9 +384,11 @@ const HelpContent: React.FC = () => (
       <ul>
         <li><strong>General</strong> — Auto-reload files, auto-save, link behavior</li>
         <li><strong>Appearance</strong> — Light, dark, or system theme</li>
-        <li><strong>Editor</strong> — Line numbers, column ruler, current line highlight, soft wrap, formatting shortcuts</li>
+        <li><strong>Editor</strong> — Line numbers, column ruler, current line highlight, status bar, soft wrap, formatting shortcuts</li>
+        <li><strong>Markdown</strong> — Default view mode, remember view mode per file</li>
         <li><strong>File Types</strong> — Set default viewing mode (View or Edit) per file type</li>
         <li><strong>Formatting</strong> — Indent size, tabs/spaces, max line length, format on save, SQL dialect</li>
+        <li><strong>AI</strong> — Provider selection, API key paths, model selection, tool usage visibility</li>
       </ul>
     </section>
 
