@@ -102,6 +102,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [allowEdits, setAllowEdits] = useState(false); // Explicit edit mode toggle
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef(content);
 
   // Keep content ref updated
@@ -113,7 +114,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const scrollToBottom = useCallback(() => {
     // Use setTimeout to ensure DOM has updated before scrolling
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: 'smooth' });
+      }
     }, 50);
   }, []);
 
@@ -308,7 +311,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         </div>
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesContainerRef}>
         {isLoading ? (
           <div className="chat-loading">Loading conversation...</div>
         ) : messages.length === 0 && !streamingContent ? (

@@ -179,7 +179,7 @@ declare global {
       purchaseRemoveAds: () => Promise<{ success: boolean; error?: string }>;
       restorePurchases: () => Promise<{ success: boolean; adFree: boolean; error?: string }>;
       // App info
-      isPackaged: boolean;
+      getIsPackaged: () => Promise<boolean>;
     };
   }
 }

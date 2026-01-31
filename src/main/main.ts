@@ -1076,6 +1076,11 @@ ipcMain.handle('show-preferences', () => {
   mainWindow?.webContents.send('show-preferences');
 });
 
+// App info
+ipcMain.handle('get-is-packaged', () => {
+  return app.isPackaged;
+});
+
 // In-app purchase handlers
 ipcMain.handle('get-ad-free-status', () => {
   return isAdFree();

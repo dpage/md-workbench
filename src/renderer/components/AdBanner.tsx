@@ -35,8 +35,14 @@ function loadAdSenseScript(): void {
 
 const AdBanner: React.FC<AdBannerProps> = ({ adFree, onPurchaseRemoveAds, onRestorePurchases }) => {
   const adRef = useRef<HTMLDivElement>(null);
-  const isPackaged = (window as any).electronAPI?.isPackaged ?? false;
+  const [isPackaged, setIsPackaged] = useState(false);
   const [visible, setVisible] = useState(!adFree);
+
+  useEffect(() => {
+    (window as any).electronAPI?.getIsPackaged?.().then((packaged: boolean) => {
+      setIsPackaged(packaged);
+    });
+  }, []);
 
   useEffect(() => {
     setVisible(!adFree);

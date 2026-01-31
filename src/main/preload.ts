@@ -421,5 +421,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('restore-purchases') as Promise<{ success: boolean; adFree: boolean; error?: string }>,
 
   // App info
-  isPackaged: !process.argv.includes('--dev') && !process.defaultApp,
+  getIsPackaged: () =>
+    ipcRenderer.invoke('get-is-packaged') as Promise<boolean>,
 });
