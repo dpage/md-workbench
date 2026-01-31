@@ -77,7 +77,10 @@ const config = {
     entitlements: "build/entitlements.mas.plist",
     entitlementsInherit: "build/entitlements.mas.inherit.plist",
     hardenedRuntime: false,
-    minimumSystemVersion: "12.0"
+    minimumSystemVersion: "12.0",
+    extendInfo: {
+      ITSAppUsesNonExemptEncryption: false
+    }
   },
   dmg: {
     sign: false,
