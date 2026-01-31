@@ -124,8 +124,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     scrollToBottom();
   }, [messages, streamingContent, isStreaming, scrollToBottom]);
 
-  // Load conversation on mount
+  // Load conversation when filePath changes
   useEffect(() => {
+    setMessages([]);
+    setStreamingContent('');
+    setIsStreaming(false);
+    setError(null);
+
     const loadConversation = async () => {
       setIsLoading(true);
       try {

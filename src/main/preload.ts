@@ -412,14 +412,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('chat-content-update', listener);
   },
 
-  // In-app purchase
-  getAdFreeStatus: () =>
-    ipcRenderer.invoke('get-ad-free-status') as Promise<boolean>,
-  purchaseRemoveAds: () =>
-    ipcRenderer.invoke('purchase-remove-ads') as Promise<{ success: boolean; error?: string }>,
-  restorePurchases: () =>
-    ipcRenderer.invoke('restore-purchases') as Promise<{ success: boolean; adFree: boolean; error?: string }>,
-
   // App info
   getIsPackaged: () =>
     ipcRenderer.invoke('get-is-packaged') as Promise<boolean>,
