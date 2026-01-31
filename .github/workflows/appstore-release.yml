@@ -96,6 +96,9 @@ jobs:
           # Copy to Provisioning Profiles directory with UUID name
           cp "$PROFILE_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.provisionprofile
 
+          # Save path for packaging step
+          echo "PROVISIONING_PROFILE_PATH=$PROFILE_PATH" >> $GITHUB_ENV
+
       - name: Package for Mac App Store
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -110,7 +113,9 @@ jobs:
           npx electron-builder --mac \
             --config electron-builder.config.js \
             --config.mac.target=mas \
-            --config.mac.type=distribution
+            --config.mac.type=distribution \
+            --config.mas.provisioningProfile="$PROVISIONING_PROFILE_PATH" \
+            --arch universal
 
           echo "Build output:"
           ls -la release/*.pkg 2>/dev/null || ls -la release/mas*/ 2>/dev/null || ls -la release/
