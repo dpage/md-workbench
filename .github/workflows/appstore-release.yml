@@ -102,6 +102,7 @@ jobs:
           CSC_LINK: ${{ secrets.APPSTORE_APP_CERTIFICATE_BASE64 }}
           CSC_KEY_PASSWORD: ${{ secrets.APPSTORE_APP_CERTIFICATE_PASSWORD }}
           CSC_KEYCHAIN: ${{ runner.temp }}/app-signing.keychain-db
+          USE_HARD_LINKS: false
         run: |
           rm -rf release/
           npx electron-builder --mac \
