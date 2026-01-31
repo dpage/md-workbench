@@ -115,7 +115,7 @@ jobs:
             --config.mac.target=mas \
             --config.mac.type=distribution \
             --config.mas.provisioningProfile="$PROVISIONING_PROFILE_PATH" \
-            --arch universal
+            --universal
 
           echo "Build output:"
           ls -la release/*.pkg 2>/dev/null || ls -la release/mas*/ 2>/dev/null || ls -la release/
