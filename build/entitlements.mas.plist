@@ -17,15 +17,5 @@
     <!-- Network access for loading ads -->
     <key>com.apple.security.network.client</key>
     <true/>
-
-    <!-- In-app purchases -->
-    <key>com.apple.security.in-app-payments</key>
-    <true/>
-
-    <!-- Team ID - required for App Store builds -->
-    <key>com.apple.security.application-groups</key>
-    <array>
-        <string>$(TeamIdentifierPrefix)com.example.mdworkbench</string>
-    </array>
 </dict>
 </plist>

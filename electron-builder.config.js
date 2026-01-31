@@ -76,7 +76,8 @@ const config = {
   mas: {
     entitlements: "build/entitlements.mas.plist",
     entitlementsInherit: "build/entitlements.mas.inherit.plist",
-    hardenedRuntime: false
+    hardenedRuntime: false,
+    minimumSystemVersion: "12.0"
   },
   dmg: {
     sign: false,
