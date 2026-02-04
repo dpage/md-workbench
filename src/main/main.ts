@@ -715,6 +715,18 @@ function createMenu(): void {
           ? [
               { type: 'separator' as const },
               { role: 'front' as const },
+              { type: 'separator' as const },
+              {
+                label: 'Main Window',
+                click: () => {
+                  if (mainWindow) {
+                    mainWindow.show();
+                    mainWindow.focus();
+                  } else {
+                    createWindow();
+                  }
+                },
+              },
             ]
           : [{ role: 'close' as const }]),
       ],

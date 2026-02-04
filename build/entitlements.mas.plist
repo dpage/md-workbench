@@ -6,15 +6,15 @@
     <key>com.apple.security.app-sandbox</key>
     <true/>
 
-    <!-- Allow read/write access to user-selected files -->
+    <!-- Allow read/write access to user-selected files via Open/Save dialogs -->
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
 
-    <!-- Allow read access to Downloads folder for opening files -->
-    <key>com.apple.security.files.downloads.read-write</key>
+    <!-- Allow app-scoped bookmarks to remember user-selected file locations -->
+    <key>com.apple.security.files.bookmarks.app-scope</key>
     <true/>
 
-    <!-- Network access for loading ads -->
+    <!-- Network access for AI chat API calls -->
     <key>com.apple.security.network.client</key>
     <true/>
 </dict>

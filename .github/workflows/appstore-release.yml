@@ -6,7 +6,7 @@ on:
       version:
         description: 'Version number (e.g., 1.0.0)'
         required: true
-        default: '1.0.3'
+        default: '1.0.4'
 
 env:
   APP_NAME: Markdown Workbench
