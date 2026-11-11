@@ -4882,3 +4882,19 @@ body {
     break-after: avoid;
   }
 }
+
+/* Selection kept visible whilst focus is elsewhere (e.g. the chat input) */
+.source-editor-highlight.source-editor-retained-selection {
+  color: transparent;
+  background-color: transparent;
+  z-index: 2;
+}
+
+.source-editor-retained-selection .retained-selection {
+  color: transparent;
+  background-color: var(--accent-glow);
+}
+
+::highlight(retained-selection) {
+  background-color: var(--accent-glow);
+}

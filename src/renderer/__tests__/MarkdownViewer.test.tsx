@@ -9,7 +9,11 @@
 
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import MarkdownViewer from '../components/MarkdownViewer';
+import MarkdownViewer, {
+  generateTableOfContents,
+  preprocessIndentedCodeFences,
+  preprocessSubSuperscript,
+} from '../components/MarkdownViewer';
 
 const defaultProps = {
   fileName: 'test.md',
@@ -124,5 +128,64 @@ describe('MarkdownViewer Component', () => {
       expect(document.querySelectorAll('mark.search-highlight')).toHaveLength(1);
       expect(document.querySelector('pre mark')).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('MarkdownViewer preprocessor line maps', () => {
+  const toc = [
+    '<nav class="table-of-contents">',
+    '',
+    '**Table of Contents**',
+    '',
+    '- [A](#a)',
+    '  - [B](#b)',
+    '',
+    '</nav>',
+  ];
+
+  it('maps generated TOC lines to the marker line', () => {
+    const result = generateTableOfContents('# A\n[TOC]\n## B');
+    expect(result.content.split('\n')).toEqual(['# A', ...toc, '## B']);
+    expect(result.lineMap).toEqual([0, ...toc.map(() => 1), 2]);
+  });
+
+  it('replaces blank lines around the TOC marker as before', () => {
+    const result = generateTableOfContents('# A\n\n[TOC]\n\n## B');
+    expect(result.content.split('\n')).toEqual(['# A', ...toc, '## B']);
+    expect(result.lineMap).toEqual([0, ...toc.map(() => 2), 4]);
+  });
+
+  it('inserts heading text containing $ literally', () => {
+    const result = generateTableOfContents('[TOC]\n# Cost $& more');
+    expect(result.content).toContain('- [Cost $& more](#cost-more)');
+  });
+
+  it('leaves content without a TOC marker unchanged', () => {
+    const result = generateTableOfContents('# A\ntext');
+    expect(result).toEqual({ content: '# A\ntext', lineMap: [0, 1] });
+  });
+
+  it('keeps the line count for subscript and superscript', () => {
+    const result = preprocessSubSuperscript('H~2~O\nx^2^');
+    expect(result).toEqual({
+      content: 'H<sub>2</sub>O\nx<sup>2</sup>',
+      lineMap: [0, 1],
+    });
+  });
+
+  it('maps lines added around indented code fences to the fence lines', () => {
+    const result = preprocessIndentedCodeFences('Text\n    ```js\n    x\n    ```\nEnd');
+    expect(result.content.split('\n')).toEqual([
+      'Text',
+      '<div class="indented-code-block">',
+      '',
+      '```js',
+      'x',
+      '```',
+      '',
+      '</div>',
+      'End',
+    ]);
+    expect(result.lineMap).toEqual([0, 1, 1, 1, 2, 3, 3, 3, 4]);
   });
 });

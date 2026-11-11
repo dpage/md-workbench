@@ -42,7 +42,7 @@ const EDITING_TOOLS: ToolDefinition[] = [
   },
   {
     name: 'read_selection',
-    description: 'Read the currently selected text in the editor. Use ONLY when user mentions "selected text" or "selection".',
+    description: 'Read the currently selected text in the editor or preview. Use ONLY when user mentions "selected text" or "selection".',
     parameters: {
       type: 'object',
       properties: {},

@@ -29,8 +29,20 @@ import {
 } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkAdmonitions, {
   AdmonitionType,
-  preprocessAdmonitions,
+  preprocessAdmonitionsWithLineMap,
 } from '../plugins/remarkAdmonitions';
+import {
+  composeLineMaps,
+  fromLines,
+  identityLineMap,
+  rangeToParsedLines,
+  rehypeSourceLines,
+  sourceSelectionFromParsedLines,
+  SOURCE_END_ATTR,
+  SOURCE_START_ATTR,
+  type PreprocessResult,
+} from '../utils/sourceLines';
+import type { SelectionInfo } from '../../shared/chatTypes';
 import 'katex/dist/katex.min.css';
 
 interface ScrollPosition {
@@ -65,6 +77,24 @@ interface MarkdownViewerProps {
   nonFootnoteMatchIndex?: number;
   // When true, use simple linear navigation (currentMatchIndex directly) instead of category-based sync
   useLinearNavigation?: boolean;
+  // Reports the source lines behind a selection made in the preview (null when cleared)
+  onSelectionChange?: (selection: SelectionInfo | null) => void;
+  // While true, keep painting the last preview selection after focus moves elsewhere
+  retainSelection?: boolean;
+}
+
+// Name of the CSS custom highlight used to paint a retained preview selection
+const RETAINED_SELECTION_HIGHLIGHT = 'retained-selection';
+
+function setRetainedSelectionHighlight(range: Range | null): void {
+  if (typeof CSS === 'undefined' || !('highlights' in CSS) || typeof Highlight === 'undefined') {
+    return;
+  }
+  if (range) {
+    CSS.highlights.set(RETAINED_SELECTION_HIGHLIGHT, new Highlight(range));
+  } else {
+    CSS.highlights.delete(RETAINED_SELECTION_HIGHLIGHT);
+  }
 }
 
 // Initialize mermaid with theme detection
@@ -76,11 +106,11 @@ mermaid.initialize({
 
 // Generate Table of Contents from headings
 // Replaces [TOC], [[toc]], or <!-- toc --> markers with generated TOC
-function generateTableOfContents(content: string): string {
+export function generateTableOfContents(content: string): PreprocessResult {
   // Check if content has a TOC marker
   const tocMarkerRegex = /^\s*(\[TOC\]|\[\[toc\]\]|<!-- *toc *-->)\s*$/gim;
   if (!tocMarkerRegex.test(content)) {
-    return content;
+    return { content, lineMap: identityLineMap(content) };
   }
 
   // Extract headings from the content
@@ -101,7 +131,7 @@ function generateTableOfContents(content: string): string {
   }
 
   if (headings.length === 0) {
-    return content.replace(tocMarkerRegex, '');
+    return replaceTocMarkers(content, tocMarkerRegex, '');
   }
 
   // Find minimum heading level to normalize indentation
@@ -116,12 +146,52 @@ function generateTableOfContents(content: string): string {
   const toc = `<nav class="table-of-contents">\n\n**Table of Contents**\n\n${tocLines.join('\n')}\n\n</nav>`;
 
   // Replace TOC markers with generated TOC
-  return content.replace(tocMarkerRegex, toc);
+  return replaceTocMarkers(content, tocMarkerRegex, toc);
+}
+
+// Replace each TOC marker match with the TOC, mapping the TOC's lines to the
+// marker's line. Matches are anchored with ^ and $, so always span whole lines.
+function replaceTocMarkers(
+  content: string,
+  tocMarkerRegex: RegExp,
+  toc: string
+): PreprocessResult {
+  const countNewlines = (text: string) => text.split('\n').length - 1;
+  const inputLines = content.split('\n');
+  const tocLines = toc.split('\n');
+  const lines: string[] = [];
+  const origins: number[] = [];
+  let nextLine = 0;
+
+  tocMarkerRegex.lastIndex = 0;
+  let match;
+  while ((match = tocMarkerRegex.exec(content)) !== null) {
+    const firstLine = countNewlines(content.substring(0, match.index));
+    const lastLine = firstLine + countNewlines(match[0]);
+    const markerLine = firstLine + countNewlines(match[0].substring(0, match[0].indexOf(match[1])));
+
+    for (; nextLine < firstLine; nextLine++) {
+      lines.push(inputLines[nextLine]);
+      origins.push(nextLine);
+    }
+    tocLines.forEach((line) => {
+      lines.push(line);
+      origins.push(markerLine);
+    });
+    nextLine = lastLine + 1;
+  }
+
+  for (; nextLine < inputLines.length; nextLine++) {
+    lines.push(inputLines[nextLine]);
+    origins.push(nextLine);
+  }
+
+  return fromLines(lines, origins);
 }
 
 // Convert subscript (~text~) and superscript (^text^) to HTML
 // Only matches single-word or simple text patterns to avoid false positives
-function preprocessSubSuperscript(content: string): string {
+export function preprocessSubSuperscript(content: string): PreprocessResult {
   // Skip processing inside code blocks
   const lines = content.split('\n');
   const result: string[] = [];
@@ -151,20 +221,29 @@ function preprocessSubSuperscript(content: string): string {
     result.push(processed);
   }
 
-  return result.join('\n');
+  // Line count is unchanged
+  return { content: result.join('\n'), lineMap: identityLineMap(content) };
 }
 
 // Preprocess indented code fences (4+ spaces) to be recognized by the parser
 // CommonMark only allows 0-3 spaces of indentation for code fences
 // We reduce the fence indentation but add a marker class for CSS styling
-function preprocessIndentedCodeFences(content: string): string {
+export function preprocessIndentedCodeFences(content: string): PreprocessResult {
   const lines = content.split('\n');
   const result: string[] = [];
+  const origins: number[] = [];
   let inCodeBlock = false;
   let inIndentedCodeBlock = false;
   let codeBlockIndent = 0;
+  let lineIndex = 0;
+  const push = (outputLine: string) => {
+    result.push(outputLine);
+    origins.push(lineIndex);
+  };
 
-  for (const line of lines) {
+  for (; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
+
     // Check for opening code fence with 4+ spaces indentation
     const openMatch = line.match(/^(\s{4,})(```|~~~)(\w*)\s*$/);
     if (!inCodeBlock && openMatch) {
@@ -172,9 +251,9 @@ function preprocessIndentedCodeFences(content: string): string {
       inIndentedCodeBlock = true;
       codeBlockIndent = openMatch[1].length;
       // Add marker div for CSS, then the code fence with reduced indentation
-      result.push('<div class="indented-code-block">');
-      result.push('');
-      result.push(openMatch[2] + openMatch[3]);
+      push('<div class="indented-code-block">');
+      push('');
+      push(openMatch[2] + openMatch[3]);
       continue;
     }
 
@@ -183,7 +262,7 @@ function preprocessIndentedCodeFences(content: string): string {
     if (!inCodeBlock && normalOpenMatch) {
       inCodeBlock = true;
       inIndentedCodeBlock = false;
-      result.push(line);
+      push(line);
       continue;
     }
 
@@ -193,29 +272,29 @@ function preprocessIndentedCodeFences(content: string): string {
       if (closeMatch) {
         inCodeBlock = false;
         if (inIndentedCodeBlock) {
-          result.push(closeMatch[2]);
-          result.push('');
-          result.push('</div>');
+          push(closeMatch[2]);
+          push('');
+          push('</div>');
           inIndentedCodeBlock = false;
         } else {
-          result.push(line);
+          push(line);
         }
         codeBlockIndent = 0;
         continue;
       }
       // For indented code blocks, remove the extra indentation
       if (inIndentedCodeBlock && line.startsWith(' '.repeat(codeBlockIndent))) {
-        result.push(line.slice(codeBlockIndent));
+        push(line.slice(codeBlockIndent));
       } else {
-        result.push(line);
+        push(line);
       }
       continue;
     }
 
-    result.push(line);
+    push(line);
   }
 
-  return result.join('\n');
+  return fromLines(result, origins);
 }
 
 // Helper to resolve image paths relative to the markdown file
@@ -511,13 +590,18 @@ const Admonition: React.FC<{
   type: AdmonitionType;
   title?: string;
   children?: React.ReactNode;
-}> = ({ type, title, children }) => {
+  sourceStart?: number;
+  sourceEnd?: number;
+}> = ({ type, title, children, sourceStart, sourceEnd }) => {
   // Use custom title if provided, otherwise use default
   const displayTitle = title || admonitionTitles[type] || 'Note';
   const icon = admonitionIcons[type] || admonitionIcons.note;
 
   return (
-    <div className={`admonition admonition-${type}`}>
+    <div
+      className={`admonition admonition-${type}`}
+      {...{ [SOURCE_START_ATTR]: sourceStart, [SOURCE_END_ATTR]: sourceEnd }}
+    >
       <div className="admonition-title">
         <span className="admonition-icon">{icon}</span>
         <span>{displayTitle}</span>
@@ -541,9 +625,80 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
   footnoteMatchIndex = 0,
   nonFootnoteMatchIndex = 0,
   useLinearNavigation = false,
+  onSelectionChange,
+  retainSelection = false,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const retainedRangeRef = useRef<Range | null>(null);
+  const retainSelectionRef = useRef(retainSelection);
+  retainSelectionRef.current = retainSelection;
+
+  // Preprocess content for the parser, keeping a map from parsed lines back to source lines
+  const processed = useMemo(() => {
+    const toc = generateTableOfContents(content);
+    const subSuper = preprocessSubSuperscript(toc.content);
+    const fences = preprocessIndentedCodeFences(subSuper.content);
+    const admonitions = preprocessAdmonitionsWithLineMap(fences.content);
+    return {
+      content: admonitions.content,
+      lineMap: composeLineMaps([toc.lineMap, subSuper.lineMap, fences.lineMap, admonitions.lineMap]),
+    };
+  }, [content]);
+
+  // Track selections made in the preview. Selections elsewhere (e.g. the chat
+  // input) are ignored so the last preview selection is retained.
+  useEffect(() => {
+    if (!onSelectionChange) return;
+
+    const handleSelectionChange = () => {
+      const contentEl = contentRef.current;
+      const selection = document.getSelection();
+      if (!contentEl || !selection || selection.rangeCount === 0) return;
+
+      const range = selection.getRangeAt(0);
+      if (!contentEl.contains(range.commonAncestorContainer)) return;
+
+      const lines = range.collapsed ? null : rangeToParsedLines(range, contentEl);
+      const info = lines
+        ? sourceSelectionFromParsedLines(content, processed.lineMap, lines.start, lines.end)
+        : null;
+
+      retainedRangeRef.current = info ? range.cloneRange() : null;
+      if (retainSelectionRef.current) {
+        setRetainedSelectionHighlight(retainedRangeRef.current);
+      }
+      onSelectionChange(info);
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [onSelectionChange, content, processed]);
+
+  // Paint the retained selection while this preview owns it
+  useEffect(() => {
+    if (retainSelection) {
+      setRetainedSelectionHighlight(retainedRangeRef.current);
+    } else {
+      retainedRangeRef.current = null;
+      setRetainedSelectionHighlight(null);
+    }
+  }, [retainSelection]);
+
+  // The rendered DOM is rebuilt when content changes, so a retained selection
+  // no longer applies; release it if this preview owns it
+  useEffect(() => {
+    if (retainedRangeRef.current && retainSelectionRef.current) {
+      retainedRangeRef.current = null;
+      setRetainedSelectionHighlight(null);
+      onSelectionChange?.(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content]);
+
+  useEffect(() => () => {
+    if (retainSelectionRef.current) setRetainedSelectionHighlight(null);
+  }, []);
   const scrollPositionRef = useRef<ScrollPosition>(
     initialScrollPosition || { top: 0, left: 0 }
   );
@@ -1159,7 +1314,16 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
         }
         return <CodeBlock className={className}>{children}</CodeBlock>;
       },
-      pre: ({ children }: { children?: React.ReactNode }) => <pre>{children}</pre>,
+      pre: (props: { children?: React.ReactNode; [SOURCE_START_ATTR]?: number; [SOURCE_END_ATTR]?: number }) => (
+        <pre
+          {...{
+            [SOURCE_START_ATTR]: props[SOURCE_START_ATTR],
+            [SOURCE_END_ATTR]: props[SOURCE_END_ATTR],
+          }}
+        >
+          {props.children}
+        </pre>
+      ),
       img: ({
         src,
         alt,
@@ -1193,7 +1357,12 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
           'note') as AdmonitionType;
         const title = props.title as string | undefined;
         return (
-          <Admonition type={admonitionType} title={title}>
+          <Admonition
+            type={admonitionType}
+            title={title}
+            sourceStart={props[SOURCE_START_ATTR]}
+            sourceEnd={props[SOURCE_END_ATTR]}
+          >
             {props.children}
           </Admonition>
         );
@@ -1225,7 +1394,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
             remarkEmoji,
             remarkAdmonitions,
           ]}
-          rehypePlugins={[rehypeRaw, rehypeKatex]}
+          rehypePlugins={[rehypeRaw, rehypeKatex, rehypeSourceLines]}
           remarkRehypeOptions={{
             handlers: {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1247,7 +1416,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
           }}
           components={components}
         >
-          {preprocessAdmonitions(preprocessIndentedCodeFences(preprocessSubSuperscript(generateTableOfContents(content))))}
+          {processed.content}
         </ReactMarkdown>
       </div>
     </div>

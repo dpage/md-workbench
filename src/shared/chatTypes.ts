@@ -72,11 +72,13 @@ export interface ToolContext {
   onContentChange: (newContent: string) => void;
 }
 
-// Selection info from editor
+// Selection info from the editor or preview. A preview selection is expanded
+// to the whole source lines it was rendered from.
 export interface SelectionInfo {
   start: number;
   end: number;
   text: string;
+  source?: 'editor' | 'preview';
 }
 
 // Chat stream request parameters

@@ -296,4 +296,78 @@ describe('SplitEditor Component', () => {
       expect(screen.queryByPlaceholderText('Find')).not.toBeInTheDocument();
     });
   });
+
+  describe('Chat selection', () => {
+    it('reports the editor selection and clears it when collapsed', () => {
+      const onSelectionChange = jest.fn();
+      render(
+        <SplitEditor
+          {...defaultProps}
+          supportsRenderedView={false}
+          onSelectionChange={onSelectionChange}
+        />
+      );
+      const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
+
+      fireEvent.focus(textarea);
+      textarea.setSelectionRange(6, 11);
+      fireEvent.select(textarea);
+      expect(onSelectionChange).toHaveBeenLastCalledWith({
+        start: 6,
+        end: 11,
+        text: 'World',
+        source: 'editor',
+      });
+
+      textarea.setSelectionRange(3, 3);
+      fireEvent.click(textarea);
+      expect(onSelectionChange).toHaveBeenLastCalledWith(null);
+    });
+
+    it('keeps the selection visible whilst the editor is not focused', () => {
+      const { rerender } = render(
+        <SplitEditor {...defaultProps} supportsRenderedView={false} retainSelection={null} />
+      );
+      const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
+
+      fireEvent.focus(textarea);
+      textarea.setSelectionRange(6, 11);
+      fireEvent.select(textarea);
+      rerender(
+        <SplitEditor {...defaultProps} supportsRenderedView={false} retainSelection="editor" />
+      );
+      expect(screen.queryByTestId('retained-selection')).not.toBeInTheDocument();
+
+      fireEvent.blur(textarea);
+      expect(screen.getByTestId('retained-selection').querySelector('mark')).toHaveTextContent('World');
+
+      rerender(
+        <SplitEditor {...defaultProps} supportsRenderedView={false} retainSelection="preview" />
+      );
+      expect(screen.queryByTestId('retained-selection')).not.toBeInTheDocument();
+    });
+
+    it('clears the selection when the content changes externally', () => {
+      const onSelectionChange = jest.fn();
+      const { rerender } = render(
+        <SplitEditor {...defaultProps} supportsRenderedView={false} onSelectionChange={onSelectionChange} />
+      );
+      const textarea = screen.getByRole('textbox') as HTMLTextAreaElement;
+      fireEvent.focus(textarea);
+      textarea.setSelectionRange(6, 11);
+      fireEvent.select(textarea);
+
+      onSelectionChange.mockClear();
+      rerender(
+        <SplitEditor
+          {...defaultProps}
+          content="Goodbye"
+          supportsRenderedView={false}
+          onSelectionChange={onSelectionChange}
+        />
+      );
+      expect(onSelectionChange).toHaveBeenCalledWith(null);
+      expect(onSelectionChange).not.toHaveBeenCalledWith(expect.objectContaining({ text: 'World' }));
+    });
+  });
 });

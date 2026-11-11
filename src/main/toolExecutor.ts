@@ -107,9 +107,14 @@ function executeReadSelection(context: ToolContext): ToolResult {
   const selectedText = fileContent.substring(selection.start, selection.end);
   const charCount = selection.end - selection.start;
 
+  // A preview selection is expanded to the whole source lines it was rendered from
+  const origin = selection.source === 'preview'
+    ? ', selected in the preview and expanded to whole source lines'
+    : '';
+
   return {
     toolCallId: '',
-    content: `Selected text (${charCount} characters, positions ${selection.start}-${selection.end}):\n\n${selectedText}`,
+    content: `Selected text (${charCount} characters, positions ${selection.start}-${selection.end}${origin}):\n\n${selectedText}`,
     isError: false,
   };
 }

@@ -35,6 +35,10 @@ export function preprocessAdmonitions(content: string): string {
   return content;
 }
 
+export function preprocessAdmonitionsWithLineMap(content: string) {
+  return { content, lineMap: content.split('\n').map((_, i) => i) };
+}
+
 export function remarkAdmonitions() {
   return () => {};
 }

@@ -12,6 +12,7 @@ import MarkdownViewer, { SearchHighlightOptions } from './MarkdownViewer';
 import SearchBar, { SearchOptions, SearchResult } from './SearchBar';
 import FormattingToolbar from './FormattingToolbar';
 import { FormattingResult } from '../utils/markdownFormatting';
+import type { SelectionInfo } from '../../shared/chatTypes';
 import hljs from 'highlight.js/lib/core';
 
 // Import commonly used languages
@@ -95,6 +96,10 @@ interface SplitEditorProps {
   maxLineLength?: number;
   softWrap?: boolean;
   formattingShortcuts?: boolean;
+  // Reports the selection in either pane (null when cleared), for the chat
+  onSelectionChange?: (selection: SelectionInfo | null) => void;
+  // Which pane's selection, if any, is kept visible whilst focus is elsewhere
+  retainSelection?: 'editor' | 'preview' | null;
 }
 
 interface Match {
@@ -143,6 +148,8 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
   maxLineLength = 79,
   softWrap = false,
   formattingShortcuts = true,
+  onSelectionChange,
+  retainSelection = null,
 }, ref) => {
   const [splitRatio, setSplitRatio] = useState(0.5); // 0-1, left panel width ratio
   const [isDragging, setIsDragging] = useState(false);
@@ -158,6 +165,7 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
   );
   const [selectionStart, setSelectionStart] = useState(0);
   const [selectionEnd, setSelectionEnd] = useState(0);
+  const [isEditorFocused, setIsEditorFocused] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const hasScrolledToInitialMatchRef = useRef(false);
@@ -803,6 +811,39 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     }
   }, []);
 
+  // Report the editor selection; a collapsed selection clears it. The
+  // callback is held in a ref so a new identity doesn't trigger a report,
+  // which would replace a selection made in the preview.
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  onSelectionChangeRef.current = onSelectionChange;
+  const reportSelection = useCallback(() => {
+    const onSelectionChange = onSelectionChangeRef.current;
+    if (!onSelectionChange) return;
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const start = Math.min(textarea.selectionStart, textarea.selectionEnd);
+    const end = Math.max(textarea.selectionStart, textarea.selectionEnd);
+    onSelectionChange(start === end ? null : {
+      start,
+      end,
+      text: textarea.value.substring(start, end),
+      source: 'editor',
+    });
+  }, []);
+
+  useEffect(() => {
+    reportSelection();
+  }, [selectionStart, selectionEnd, reportSelection]);
+
+  const handleEditorFocus = useCallback(() => {
+    setIsEditorFocused(true);
+    reportSelection();
+  }, [reportSelection]);
+
+  const handleEditorBlur = useCallback(() => {
+    setIsEditorFocused(false);
+  }, []);
+
   // Get current selection for formatting toolbar
   const getSelection = useCallback(() => {
     return {
@@ -857,6 +898,7 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
   const sourceRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
+  const retainedSelectionRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef<HTMLDivElement>(null);
   // Track which panel was just programmatically scrolled (to ignore its resulting scroll event)
   const programmaticScrollTargetRef = useRef<'source' | 'rendered' | null>(null);
@@ -890,6 +932,10 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     redoStackRef.current = [];
     setEditedContent(content);
     setPreviewContent(content);
+    // Selection offsets no longer refer to the same text
+    setSelectionStart(0);
+    setSelectionEnd(0);
+    onSelectionChangeRef.current?.(null);
 
     // Trigger auto-save for external content changes (e.g., LLM edits)
     // Use setTimeout to defer until after React state update has flushed
@@ -1265,6 +1311,10 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     if (textarea && highlight) {
       highlight.scrollTop = textarea.scrollTop;
       highlight.scrollLeft = textarea.scrollLeft;
+      if (retainedSelectionRef.current) {
+        retainedSelectionRef.current.scrollTop = textarea.scrollTop;
+        retainedSelectionRef.current.scrollLeft = textarea.scrollLeft;
+      }
       setScrollTop(textarea.scrollTop);
       setScrollLeft(textarea.scrollLeft);
     }
@@ -1663,6 +1713,21 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
     return syntaxHighlightedContent + '\n';
   }, [editedContent, matches, physicalMatchIndex, syntaxHighlightedContent, tocMatchCount, isCurrentMatchInToc, currentMatchIndex]);
 
+  // Keep the editor selection visible whilst focus is elsewhere (e.g. the
+  // chat input), since an unfocused textarea doesn't paint its selection
+  const retainedStart = Math.min(selectionStart, selectionEnd);
+  const retainedEnd = Math.max(selectionStart, selectionEnd);
+  const showRetainedSelection = retainSelection === 'editor' && !isEditorFocused && retainedStart !== retainedEnd;
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    const layer = retainedSelectionRef.current;
+    if (showRetainedSelection && textarea && layer) {
+      layer.scrollTop = textarea.scrollTop;
+      layer.scrollLeft = textarea.scrollLeft;
+    }
+  }, [showRetainedSelection]);
+
   // Sync highlight overlay scroll with textarea
   const syncHighlightScroll = useCallback(() => {
     const textarea = textareaRef.current;
@@ -1833,6 +1898,20 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
               className={`source-editor-highlight ${matches.length === 0 ? 'syntax-highlighted' : ''} ${softWrap ? 'soft-wrap' : ''}`}
               dangerouslySetInnerHTML={{ __html: highlightedSourceContent }}
             />
+            {showRetainedSelection && (
+              <div
+                ref={retainedSelectionRef}
+                className={`source-editor-highlight source-editor-retained-selection ${softWrap ? 'soft-wrap' : ''}`}
+                data-testid="retained-selection"
+              >
+                {editedContent.substring(0, retainedStart)}
+                <mark className="retained-selection">
+                  {editedContent.substring(retainedStart, retainedEnd)}
+                </mark>
+                {editedContent.substring(retainedEnd)}
+                {'\n'}
+              </div>
+            )}
             <textarea
               ref={textareaRef}
               className={`source-editor ${softWrap ? 'soft-wrap' : ''}`}
@@ -1842,6 +1921,9 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
               onScroll={handleSourceScroll}
               onSelect={handleSelectionChange}
               onClick={handleSelectionChange}
+              onKeyUp={handleSelectionChange}
+              onFocus={handleEditorFocus}
+              onBlur={handleEditorBlur}
               spellCheck={false}
               wrap={softWrap ? 'soft' : 'off'}
             />
@@ -1868,6 +1950,8 @@ const SplitEditor = forwardRef<SplitEditorHandle, SplitEditorProps>(({
                 isFootnoteMatch={isCurrentMatchInFootnote}
                 footnoteMatchIndex={currentFootnoteMatchIndex}
                 nonFootnoteMatchIndex={currentNonFootnoteMatchIndex}
+                onSelectionChange={onSelectionChange}
+                retainSelection={retainSelection === 'preview'}
               />
             </div>
           </>

@@ -35,6 +35,7 @@ import type {
   ChatContentUpdateEvent,
   ChatStreamRequest,
   ToolDefinition,
+  SelectionInfo,
 } from '../shared/chatTypes';
 import { formatDocument, canFormatDocument } from './utils/formatters';
 
@@ -208,6 +209,9 @@ const App: React.FC = () => {
   const [showChat, setShowChat] = useState(false);
   const [chatPanelWidth, setChatPanelWidth] = useState(350); // Default width in pixels
   const [cursorPosition, setCursorPosition] = useState<CursorPosition>({ line: 1, column: 1 });
+  // Last selection made in the editor or preview, for the chat's read_selection
+  // tool; kept when focus moves to the chat input
+  const [chatSelection, setChatSelection] = useState<SelectionInfo | null>(null);
   // Snapshot of the tab being printed; non-null while a print is in progress
   const [printTab, setPrintTab] = useState<Tab | null>(null);
   const themeRef = useRef<Theme>(theme);
@@ -978,6 +982,17 @@ const App: React.FC = () => {
     setCursorPosition(position);
   }, []);
 
+  const handleSelectionChange = useCallback((selection: SelectionInfo | null) => {
+    setChatSelection((prev) => {
+      if (prev === selection) return prev;
+      if (prev && selection && prev.start === selection.start && prev.end === selection.end
+        && prev.source === selection.source && prev.text === selection.text) {
+        return prev;
+      }
+      return selection;
+    });
+  }, []);
+
   // Help panel
   const handleToggleHelp = useCallback(() => {
     setShowHelp((prev) => !prev);
@@ -1399,6 +1414,13 @@ const App: React.FC = () => {
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
+  // A selection belongs to the pane it was made in, so drop it when the tab or
+  // view mode changes
+  const activeViewMode = activeTab?.viewMode;
+  useEffect(() => {
+    setChatSelection(null);
+  }, [activeTabId, activeViewMode]);
+
   // Search highlight options for view mode MarkdownViewer
   const viewSearchHighlight: SearchHighlightOptions | undefined = useMemo(() => {
     const isInEditMode = activeTab?.viewMode === 'edit' || activeTab?.viewMode === 'split';
@@ -1470,7 +1492,7 @@ const App: React.FC = () => {
                 filePath={activeTab.filePath}
                 fileName={activeTab.fileName}
                 content={activeTab.content}
-                selection={null}
+                selection={chatSelection}
                 onContentChange={handleContentChange}
                 preferences={preferences}
                 onClose={handleCloseChat}
@@ -1531,6 +1553,8 @@ const App: React.FC = () => {
                   maxLineLength={preferences.formatting?.maxLineLength ?? 79}
                   softWrap={preferences.editor?.softWrap ?? false}
                   formattingShortcuts={preferences.editor?.formattingShortcuts ?? true}
+                  onSelectionChange={handleSelectionChange}
+                  retainSelection={chatSelection?.source ?? null}
                 />
               ) : activeTab.viewMode === 'split' ? (
                 // Split mode - editor + preview
@@ -1563,6 +1587,8 @@ const App: React.FC = () => {
                   maxLineLength={preferences.formatting?.maxLineLength ?? 79}
                   softWrap={preferences.editor?.softWrap ?? false}
                   formattingShortcuts={preferences.editor?.formattingShortcuts ?? true}
+                  onSelectionChange={handleSelectionChange}
+                  retainSelection={chatSelection?.source ?? null}
                 />
               ) : (
                 // Preview mode (default)
@@ -1593,6 +1619,8 @@ const App: React.FC = () => {
                     currentMatchIndex={viewCurrentMatch - 1}
                     onMatchCountChange={handleViewMatchCountChange}
                     useLinearNavigation={true}
+                    onSelectionChange={handleSelectionChange}
+                    retainSelection={chatSelection?.source === 'preview'}
                   />
                 </div>
               )
@@ -1627,6 +1655,8 @@ const App: React.FC = () => {
                 maxLineLength={preferences.formatting?.maxLineLength ?? 79}
                 softWrap={preferences.editor?.softWrap ?? false}
                 formattingShortcuts={preferences.editor?.formattingShortcuts ?? true}
+                onSelectionChange={handleSelectionChange}
+                retainSelection={chatSelection?.source ?? null}
               />
             )
           ) : !isRestoring ? (

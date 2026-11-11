@@ -9,6 +9,7 @@
 
 import { visit } from 'unist-util-visit';
 import type { Root, Blockquote, Paragraph, Text } from 'mdast';
+import { fromLines, type PreprocessResult } from '../utils/sourceLines';
 
 // Supported admonition types (expanded to include MkDocs types)
 export type AdmonitionType =
@@ -108,9 +109,19 @@ const MKDOCS_HEADER_REGEX = /^!!!\s+(\w+)(?:\s+"([^"]*)")?/;
  *   > More content
  */
 export function preprocessAdmonitions(content: string): string {
+  return preprocessAdmonitionsWithLineMap(content).content;
+}
+
+// As preprocessAdmonitions, also recording the input line of each output line
+export function preprocessAdmonitionsWithLineMap(content: string): PreprocessResult {
   const lines = content.split('\n');
   const result: string[] = [];
+  const origins: number[] = [];
   let i = 0;
+  const push = (line: string) => {
+    result.push(line);
+    origins.push(i);
+  };
 
   while (i < lines.length) {
     const line = lines[i];
@@ -123,12 +134,12 @@ export function preprocessAdmonitions(content: string): string {
       const customTitle = match[2];
 
       // Start the GitHub-style admonition
-      result.push(`> [!${githubType}]`);
+      push(`> [!${githubType}]`);
 
       // Add custom title if provided
       if (customTitle) {
-        result.push(`> **${customTitle}**`);
-        result.push(`>`);
+        push(`> **${customTitle}**`);
+        push(`>`);
       }
 
       // Collect indented content lines
@@ -142,7 +153,7 @@ export function preprocessAdmonitions(content: string): string {
           const unindented = contentLine.startsWith('    ')
             ? contentLine.slice(4)
             : contentLine.slice(1);
-          result.push(`> ${unindented}`);
+          push(`> ${unindented}`);
           i++;
         } else if (contentLine.trim() === '') {
           // Empty line - could be inside or after admonition
@@ -151,7 +162,7 @@ export function preprocessAdmonitions(content: string): string {
             i + 1 < lines.length &&
             (lines[i + 1].startsWith('    ') || lines[i + 1].startsWith('\t'))
           ) {
-            result.push(`>`);
+            push(`>`);
             i++;
           } else {
             // End of admonition
@@ -163,12 +174,12 @@ export function preprocessAdmonitions(content: string): string {
         }
       }
     } else {
-      result.push(line);
+      push(line);
       i++;
     }
   }
 
-  return result.join('\n');
+  return fromLines(result, origins);
 }
 
 /**
