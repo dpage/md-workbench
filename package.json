@@ -64,6 +64,7 @@
     "js-yaml": "^5.5.0",
     "json-stringify-pretty-compact": "^4.0.0",
     "katex": "^0.19.1",
+    "mdworkbench-bookmarks": "file:native/bookmarks",
     "mermaid": "^12.3.0",
     "prettier": "^3.10.0",
     "react": "^19.3.1",

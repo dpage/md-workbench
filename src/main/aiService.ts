@@ -12,7 +12,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as https from 'https';
 import * as http from 'http';
-import { withFileAccess } from './fileBookmarks';
+import { ensureFileAccess } from './fileBookmarks';
 import {
   AIProvider,
   AIModel,
@@ -40,7 +40,8 @@ function expandPath(filePath: string): string {
 async function readKeyFromFile(filePath: string): Promise<string | null> {
   try {
     const expandedPath = expandPath(filePath);
-    const content = await withFileAccess(expandedPath, () => fs.promises.readFile(expandedPath, 'utf-8'));
+    ensureFileAccess(expandedPath);
+    const content = await fs.promises.readFile(expandedPath, 'utf-8');
     return content.trim();
   } catch {
     return null;

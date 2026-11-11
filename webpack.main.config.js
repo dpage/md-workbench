@@ -27,6 +27,7 @@ module.exports = [
     },
     externals: {
       'better-sqlite3': 'commonjs better-sqlite3',
+      'mdworkbench-bookmarks': 'commonjs mdworkbench-bookmarks',
     },
   },
   // Preload script

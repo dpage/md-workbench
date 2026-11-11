@@ -1270,6 +1270,7 @@ const App: React.FC = () => {
 
       // Load each file
       const loadedTabs: Tab[] = [];
+      const failedFiles: string[] = [];
       let activeTab: Tab | null = null;
 
       for (const file of data.files) {
@@ -1303,9 +1304,15 @@ const App: React.FC = () => {
             activeTab = tab;
           }
         } catch (error) {
-          // File no longer exists, skip it
+          // File no longer exists, or the sandbox no longer allows access
           console.warn(`Could not restore file: ${file.filePath}`);
+          failedFiles.push(file.filePath.split(/[\\/]/).pop() ?? file.filePath);
         }
+      }
+
+      if (failedFiles.length > 0) {
+        setFormatError(`Could not reopen ${failedFiles.join(', ')}`);
+        setTimeout(() => setFormatError(null), 5000);
       }
 
       if (loadedTabs.length > 0) {

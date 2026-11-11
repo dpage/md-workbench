@@ -29,10 +29,13 @@ const config = {
     "!node_modules/better-sqlite3/src/**/*",
     "!node_modules/better-sqlite3/bin/**/*",
     "node_modules/bindings/**/*",
-    "node_modules/file-uri-to-path/**/*"
+    "node_modules/file-uri-to-path/**/*",
+    "node_modules/mdworkbench-bookmarks/{package.json,index.js}",
+    "node_modules/mdworkbench-bookmarks/build/Release/bookmarks.node"
   ],
   asarUnpack: [
-    "node_modules/better-sqlite3/**/*"
+    "node_modules/better-sqlite3/**/*",
+    "node_modules/mdworkbench-bookmarks/**/*"
   ],
   directories: {
     output: "release"

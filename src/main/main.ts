@@ -42,7 +42,7 @@ import {
   getKeyStatus,
   smartMatchModel,
 } from './aiService';
-import { saveBookmark } from './fileBookmarks';
+import { ensureFileAccess, saveBookmark } from './fileBookmarks';
 import {
   initDatabase as initChatDatabase,
   closeDatabase as closeChatDatabase,
@@ -217,6 +217,7 @@ function startWatchingFile(filePath: string): void {
   if (fileWatchers.has(filePath)) return;
 
   try {
+    ensureFileAccess(filePath);
     const watcher = fs.watch(filePath, (eventType) => {
       if (eventType === 'change' && getPreferencesWithDefaults().autoReload) {
         // Debounce: wait a bit for file to finish writing
@@ -263,6 +264,7 @@ function startWatchingFolder(folderPath: string): void {
   if (folderWatchers.has(folderPath)) return;
 
   try {
+    ensureFileAccess(folderPath);
     const watcher = fs.watch(folderPath, (eventType, filename) => {
       // Debounce folder change events
       const existingTimer = folderChangeDebounce.get(folderPath);
@@ -318,6 +320,7 @@ function addToRecentFiles(filePath: string): void {
 
 function getFilteredRecentFiles(openFilePaths: string[]): string[] {
   const recentFiles = store.get('recentFiles');
+  recentFiles.forEach(ensureFileAccess);
 
   // Filter out non-existent files and currently open files
   const filtered = recentFiles.filter((filePath) => {
@@ -378,6 +381,7 @@ function addToRecentFolders(folderPath: string): void {
 function getFilteredRecentFolders(): string[] {
   const recentFolders = store.get('recentFolders');
   const currentFolder = store.get('currentFolder');
+  recentFolders.forEach(ensureFileAccess);
 
   // Filter out non-existent folders and currently open folder
   const filtered = recentFolders.filter((folderPath) => {
@@ -423,10 +427,12 @@ async function openFolderDialog(): Promise<void> {
 
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
+    securityScopedBookmarks: process.mas,
   });
 
   if (!result.canceled && result.filePaths.length > 0) {
     const folderPath = result.filePaths[0];
+    saveBookmark(folderPath, result.bookmarks?.[0]);
     await openFolder(folderPath);
   }
 }
@@ -435,6 +441,7 @@ async function openFolder(folderPath: string): Promise<void> {
   if (!mainWindow) return;
 
   try {
+    ensureFileAccess(folderPath);
     const stats = await fs.promises.stat(folderPath);
     if (!stats.isDirectory()) {
       throw new Error('Not a directory');
@@ -460,6 +467,7 @@ function closeFolder(): void {
 
 async function readFolderContents(folderPath: string): Promise<FolderEntry[]> {
   try {
+    ensureFileAccess(folderPath);
     const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
     const result: FolderEntry[] = [];
 
@@ -837,10 +845,12 @@ async function openFileDialog(): Promise<void> {
       { name: 'Supported Files', extensions: SUPPORTED_EXTENSIONS },
       { name: 'All Files', extensions: ['*'] },
     ],
+    securityScopedBookmarks: process.mas,
   });
 
   if (!result.canceled && result.filePaths.length > 0) {
     const filePath = result.filePaths[0];
+    saveBookmark(filePath, result.bookmarks?.[0]);
     await openFile(filePath);
   }
 }
@@ -852,6 +862,7 @@ async function openFile(
   if (!mainWindow) return;
 
   try {
+    ensureFileAccess(filePath);
     const content = await fs.promises.readFile(filePath, 'utf-8');
     const fileName = path.basename(filePath);
     const fileTypeInfo = getFileTypeInfo(filePath);
@@ -1049,6 +1060,7 @@ ipcMain.handle(
 
 ipcMain.handle('read-file', async (_, filePath: string) => {
   try {
+    ensureFileAccess(filePath);
     const content = await fs.promises.readFile(filePath, 'utf-8');
     const fileName = path.basename(filePath);
     const fileTypeInfo = getFileTypeInfo(filePath);
@@ -1143,6 +1155,7 @@ ipcMain.handle(
   'save-file',
   async (_, data: { filePath: string; content: string }) => {
     try {
+      ensureFileAccess(data.filePath);
       await fs.promises.writeFile(data.filePath, data.content, 'utf-8');
       return { success: true, filePath: data.filePath };
     } catch (error) {
@@ -1163,11 +1176,13 @@ ipcMain.handle(
         { name: 'Text Files', extensions: ['txt'] },
         { name: 'All Files', extensions: ['*'] },
       ],
+      securityScopedBookmarks: process.mas,
     });
 
     if (result.canceled || !result.filePath) {
       return { success: false, canceled: true };
     }
+    saveBookmark(result.filePath, result.bookmark);
 
     try {
       await fs.promises.writeFile(result.filePath, data.content, 'utf-8');

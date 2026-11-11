@@ -1,0 +1,10 @@
+{
+  "name": "mdworkbench-bookmarks",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Creates macOS security-scoped bookmarks for paths the app can already access",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "gypfile": true,
+  "license": "PostgreSQL"
+}
