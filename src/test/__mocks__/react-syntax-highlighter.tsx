@@ -17,7 +17,7 @@ export const Prism: React.FC<{
   PreTag?: string;
   customStyle?: React.CSSProperties;
 }> = ({ children, language, PreTag = 'pre' }) => {
-  const Tag = PreTag as keyof JSX.IntrinsicElements;
+  const Tag = PreTag as keyof React.JSX.IntrinsicElements;
   return (
     <Tag data-testid="syntax-highlighter" data-language={language}>
       <code>{children}</code>
