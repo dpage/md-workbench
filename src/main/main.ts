@@ -42,6 +42,7 @@ import {
   getKeyStatus,
   smartMatchModel,
 } from './aiService';
+import { saveBookmark } from './fileBookmarks';
 import {
   initDatabase as initChatDatabase,
   closeDatabase as closeChatDatabase,
@@ -1272,11 +1273,16 @@ ipcMain.handle('browse-key-file', async () => {
     filters: [
       { name: 'All Files', extensions: ['*'] },
     ],
+    // The key file is read again in later sessions, which the sandbox only
+    // allows via a bookmark
+    securityScopedBookmarks: process.mas,
   });
 
   if (result.canceled || result.filePaths.length === 0) {
     return { canceled: true };
   }
+
+  saveBookmark(result.filePaths[0], result.bookmarks?.[0]);
 
   return {
     canceled: false,
