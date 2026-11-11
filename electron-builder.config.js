@@ -76,7 +76,11 @@ const config = {
     gatekeeperAssess: false,
     entitlements: "build/entitlements.mac.plist",
     entitlementsInherit: "build/entitlements.mac.plist",
-    notarize: !!process.env.APPLE_TEAM_ID
+    notarize: !!process.env.APPLE_TEAM_ID,
+    // better-sqlite3 ships one prebuilt binary per architecture and picks
+    // the right one at runtime, so both are identical in each half of a
+    // universal build
+    x64ArchFiles: "Contents/Resources/app.asar.unpacked/node_modules/better-sqlite3/prebuilds/darwin-*.node"
   },
   mas: {
     entitlements: "build/entitlements.mas.plist",
