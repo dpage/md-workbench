@@ -8,7 +8,7 @@
 //
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import App from '../App';
 
 describe('App Component', () => {
@@ -69,6 +69,58 @@ describe('App Component', () => {
     expect(window.electronAPI.onThemeChanged).toHaveBeenCalled();
     expect(window.electronAPI.onRestoreSession).toHaveBeenCalled();
     expect(window.electronAPI.onNewFile).toHaveBeenCalled();
+  });
+
+  it('activates a shell-opened file that is also in the restored session', async () => {
+    const api = window.electronAPI as any;
+    let restoreCallback: (data: any) => void = () => {};
+    let fileOpenedCallback: (data: any) => void = () => {};
+    api.onRestoreSession.mockImplementationOnce((callback: any) => {
+      restoreCallback = callback;
+      return jest.fn();
+    });
+    api.onFileOpened.mockImplementationOnce((callback: any) => {
+      fileOpenedCallback = callback;
+      return jest.fn();
+    });
+
+    // Hold file reads open so the shell open-file event arrives mid-restore
+    const pendingReads: Array<() => void> = [];
+    const fileData = (filePath: string) => ({
+      filePath,
+      fileName: filePath.slice(1),
+      content: `# ${filePath}`,
+      fileType: 'markdown',
+      highlightLanguage: 'markdown',
+    });
+    api.readFile.mockImplementation(
+      (filePath: string) =>
+        new Promise((resolve) => pendingReads.push(() => resolve(fileData(filePath))))
+    );
+
+    render(<App />);
+    await waitFor(() => expect(api.onRestoreSession).toHaveBeenCalled());
+
+    restoreCallback({
+      files: [{ filePath: '/a.md' }, { filePath: '/b.md' }],
+      activeFilePath: '/a.md',
+    });
+    await fileOpenedCallback({ ...fileData('/b.md'), replaceCurrentTab: false });
+
+    // Session files are read one after another, so release them in turn
+    for (let i = 0; i < 2; i++) {
+      await waitFor(() => expect(pendingReads.length).toBeGreaterThan(0));
+      await act(async () => {
+        pendingReads.shift()?.();
+      });
+    }
+
+    await waitFor(() => {
+      const activeTab = document.querySelector('.tab.active');
+      expect(activeTab).toHaveTextContent('b.md');
+    });
+    expect(document.querySelectorAll('.tab')).toHaveLength(2);
+    expect(screen.queryByText('A thoughtful editor for your documents')).not.toBeInTheDocument();
   });
 
   it('has the correct default theme attribute', async () => {

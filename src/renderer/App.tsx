@@ -1257,11 +1257,17 @@ const App: React.FC = () => {
 
       if (loadedTabs.length > 0) {
         // Merge with any tabs that were added while restoring (e.g., from shell open-file event)
-        // Avoid duplicates by checking file paths
+        // Avoid duplicates by checking file paths. Where a file was opened during restore
+        // and is also in the session, keep the existing tab so its ID (which may be the
+        // active tab) remains valid.
         setTabs((existingTabs) => {
+          const existingByPath = new Map(existingTabs.map(t => [t.filePath, t]));
           const loadedPaths = new Set(loadedTabs.map(t => t.filePath));
           const newTabsAddedDuringRestore = existingTabs.filter(t => !loadedPaths.has(t.filePath));
-          return [...loadedTabs, ...newTabsAddedDuringRestore];
+          return [
+            ...loadedTabs.map(t => existingByPath.get(t.filePath) ?? t),
+            ...newTabsAddedDuringRestore,
+          ];
         });
         // If there were tabs added during restore, make the last one active (it's the shell-opened file)
         // Otherwise use the previously active tab from session
