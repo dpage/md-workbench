@@ -8,7 +8,7 @@
 //
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import MarkdownViewer from '../components/MarkdownViewer';
 
 const defaultProps = {
@@ -83,5 +83,46 @@ describe('MarkdownViewer Component', () => {
     render(<MarkdownViewer content={content} {...defaultProps} />);
     const img = screen.getByAltText('Alt text');
     expect(img).toHaveAttribute('src', 'https://example.com/image.png');
+  });
+
+  describe('search highlighting', () => {
+    const search = { query: 'needle', caseSensitive: false, useRegex: false };
+
+    it('finds matches inside inline code', async () => {
+      const onMatchCountChange = jest.fn();
+      const content = 'A needle in prose.\n`needle`';
+      render(
+        <MarkdownViewer
+          content={content}
+          {...defaultProps}
+          searchHighlight={search}
+          currentMatchIndex={0}
+          onMatchCountChange={onMatchCountChange}
+          useLinearNavigation={true}
+        />
+      );
+      await waitFor(() => expect(onMatchCountChange).toHaveBeenLastCalledWith(2));
+      expect(document.querySelectorAll('mark.search-highlight')).toHaveLength(2);
+      expect(document.querySelector('code > mark.search-highlight')).toBeInTheDocument();
+    });
+
+    it('does not highlight matches inside fenced code blocks', async () => {
+      const onMatchCountChange = jest.fn();
+      const content =
+        'A needle in prose.\n```sql\nSELECT needle;\n```\n```\nplain needle\n```';
+      render(
+        <MarkdownViewer
+          content={content}
+          {...defaultProps}
+          searchHighlight={search}
+          currentMatchIndex={0}
+          onMatchCountChange={onMatchCountChange}
+          useLinearNavigation={true}
+        />
+      );
+      await waitFor(() => expect(onMatchCountChange).toHaveBeenLastCalledWith(1));
+      expect(document.querySelectorAll('mark.search-highlight')).toHaveLength(1);
+      expect(document.querySelector('pre mark')).not.toBeInTheDocument();
+    });
   });
 });

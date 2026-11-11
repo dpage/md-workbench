@@ -29,10 +29,30 @@ const ReactMarkdown: React.FC<ReactMarkdownProps> = ({
   const elements: React.ReactNode[] = [];
 
   const ImgComponent = components?.img || 'img';
+  const CodeComponent = components?.code || 'code';
+  let fence: { language: string; lines: string[] } | null = null;
 
   lines.forEach((line, index) => {
     const trimmedLine = line.trim();
-    if (trimmedLine.startsWith('### ')) {
+    if (fence) {
+      // Inside a fenced code block: collect lines until the closing fence
+      if (trimmedLine === '```') {
+        elements.push(
+          <pre key={index}>
+            <CodeComponent
+              className={fence.language ? `language-${fence.language}` : undefined}
+            >
+              {fence.lines.join('\n') + '\n'}
+            </CodeComponent>
+          </pre>
+        );
+        fence = null;
+      } else {
+        fence.lines.push(line);
+      }
+    } else if (trimmedLine.startsWith('```')) {
+      fence = { language: trimmedLine.slice(3), lines: [] };
+    } else if (trimmedLine.startsWith('### ')) {
       elements.push(<h3 key={index}>{trimmedLine.slice(4)}</h3>);
     } else if (trimmedLine.startsWith('## ')) {
       elements.push(<h2 key={index}>{trimmedLine.slice(3)}</h2>);
@@ -41,7 +61,9 @@ const ReactMarkdown: React.FC<ReactMarkdownProps> = ({
     } else if (trimmedLine.startsWith('- ')) {
       elements.push(<li key={index}>{trimmedLine.slice(2)}</li>);
     } else if (trimmedLine.startsWith('`') && trimmedLine.endsWith('`')) {
-      elements.push(<code key={index}>{trimmedLine.slice(1, -1)}</code>);
+      elements.push(
+        <CodeComponent key={index}>{trimmedLine.slice(1, -1)}</CodeComponent>
+      );
     } else if (trimmedLine.match(/^!\[([^\]]*)\]\(([^)]+)\)$/)) {
       // Image syntax: ![alt](src)
       const match = trimmedLine.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);

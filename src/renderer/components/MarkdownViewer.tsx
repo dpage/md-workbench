@@ -737,14 +737,15 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
         NodeFilter.SHOW_TEXT,
         {
           acceptNode: (node) => {
-            // Check all ancestors up to contentEl, not just immediate parent
+            // Check all ancestors up to contentEl, not just immediate parent.
+            // Inline code is searchable (the editor counts it too, keeping split
+            // view in sync); code blocks, always rendered inside PRE, are not.
             let element = node.parentElement;
             while (element && element !== contentEl) {
               const tagName = element.tagName;
               if (
                 tagName === 'SCRIPT' ||
                 tagName === 'STYLE' ||
-                tagName === 'CODE' ||
                 tagName === 'PRE' ||
                 element.classList.contains('search-highlight') ||
                 element.classList.contains('code-block-wrapper') ||
