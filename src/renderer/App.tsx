@@ -19,6 +19,7 @@ import FolderPanel from './components/FolderPanel';
 import PreferencesPanel from './components/PreferencesPanel';
 import StatusBar from './components/StatusBar';
 import ChatPanel from './components/ChatPanel';
+import PrintView from './components/PrintView';
 
 import { Preferences, DEFAULT_PREFERENCES, MarkdownViewMode, DEFAULT_MARKDOWN_OPTIONS } from '../shared/preferences';
 import { AIProvider, AIOptions, AIModel, AIConnectionStatus, AIKeyStatus } from '../shared/aiProviders';
@@ -149,6 +150,8 @@ declare global {
       onFormatDocument: (callback: () => void) => () => void;
       onSetViewMode: (callback: (mode: MarkdownViewMode) => void) => () => void;
       onNewFile: (callback: () => void) => () => void;
+      onPrint: (callback: () => void) => () => void;
+      printDocument: () => Promise<{ success: boolean; error?: string }>;
       // Per-file view mode storage
       getFileViewMode: (filePath: string) => Promise<MarkdownViewMode | null>;
       setFileViewMode: (filePath: string, mode: MarkdownViewMode) => Promise<void>;
@@ -205,6 +208,12 @@ const App: React.FC = () => {
   const [showChat, setShowChat] = useState(false);
   const [chatPanelWidth, setChatPanelWidth] = useState(350); // Default width in pixels
   const [cursorPosition, setCursorPosition] = useState<CursorPosition>({ line: 1, column: 1 });
+  // Snapshot of the tab being printed; non-null while a print is in progress
+  const [printTab, setPrintTab] = useState<Tab | null>(null);
+  const themeRef = useRef<Theme>(theme);
+  themeRef.current = theme;
+  const printTabRef = useRef<Tab | null>(null);
+  printTabRef.current = printTab;
 
   // Search state for view mode (non-edit mode)
   const [viewSearchQuery, setViewSearchQuery] = useState('');
@@ -1196,7 +1205,36 @@ const App: React.FC = () => {
 
   const handleThemeChanged = useCallback((newTheme: Theme) => {
     setTheme(newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
+    // Keep the light theme for the print view until printing finishes
+    if (!printTabRef.current) {
+      document.documentElement.setAttribute('data-theme', newTheme);
+    }
+  }, []);
+
+  // Print the active tab. Code blocks and Mermaid diagrams take their theme
+  // from the document element, so switch it to light whilst the print view
+  // renders; the app UI keeps its own theme via its data-theme attribute.
+  const handlePrint = useCallback(() => {
+    if (printTabRef.current) return;
+    const tab = tabsRef.current.find((t) => t.id === activeTabIdRef.current);
+    if (!tab) return;
+    document.documentElement.setAttribute('data-theme', 'light');
+    printTabRef.current = tab;
+    setPrintTab(tab);
+  }, []);
+
+  const handlePrintReady = useCallback(async () => {
+    try {
+      const result = await window.electronAPI?.printDocument();
+      if (result && !result.success && result.error !== 'cancelled') {
+        setFormatError(`Print failed: ${result.error ?? 'unknown error'}`);
+        setTimeout(() => setFormatError(null), 5000);
+      }
+    } finally {
+      document.documentElement.setAttribute('data-theme', themeRef.current);
+      printTabRef.current = null;
+      setPrintTab(null);
+    }
   }, []);
 
   const handleFileChanged = useCallback((data: FileData) => {
@@ -1318,6 +1356,7 @@ const App: React.FC = () => {
       window.electronAPI?.onSetViewMode(handleSetViewMode);
     const unsubscribeNewFile =
       window.electronAPI?.onNewFile(handleNewFile);
+    const unsubscribePrint = window.electronAPI?.onPrint(handlePrint);
 
     return () => {
       unsubscribeFileOpened?.();
@@ -1336,6 +1375,7 @@ const App: React.FC = () => {
       unsubscribeFormatDocument?.();
       unsubscribeSetViewMode?.();
       unsubscribeNewFile?.();
+      unsubscribePrint?.();
     };
   }, [
     handleFileOpened,
@@ -1354,6 +1394,7 @@ const App: React.FC = () => {
     handleFormat,
     handleSetViewMode,
     handleNewFile,
+    handlePrint,
   ]);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -1607,6 +1648,16 @@ const App: React.FC = () => {
         />
       )}
       <HelpPanel isOpen={showHelp} onClose={handleCloseHelp} />
+      {printTab && (
+        <PrintView
+          content={printTab.content}
+          fileName={printTab.fileName}
+          filePath={printTab.filePath}
+          isMarkdown={printTab.fileType === 'markdown'}
+          highlightLanguage={printTab.highlightLanguage}
+          onReady={handlePrintReady}
+        />
+      )}
       <PreferencesPanel
         isOpen={showPreferences}
         onClose={handleClosePreferences}

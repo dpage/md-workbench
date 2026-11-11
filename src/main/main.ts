@@ -621,6 +621,14 @@ function createMenu(): void {
         },
         { type: 'separator' },
         {
+          label: 'Print...',
+          accelerator: 'CmdOrCtrl+P',
+          click: () => {
+            mainWindow?.webContents.send('print');
+          },
+        },
+        { type: 'separator' },
+        {
           label: 'Close Tab',
           accelerator: 'CmdOrCtrl+W',
           click: () => {
@@ -1027,6 +1035,16 @@ ipcMain.handle('browse-image-file', async (_, currentFilePath: string) => {
     relativePath: markdownPath,
   };
 });
+
+ipcMain.handle(
+  'print-document',
+  (event) =>
+    new Promise<{ success: boolean; error?: string }>((resolve) => {
+      event.sender.print({ printBackground: true }, (success, failureReason) => {
+        resolve(success ? { success } : { success, error: failureReason });
+      });
+    })
+);
 
 ipcMain.handle('read-file', async (_, filePath: string) => {
   try {

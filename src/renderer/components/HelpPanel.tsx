@@ -161,6 +161,7 @@ const HelpContent: React.FC = () => (
         <li>Press <kbd>Cmd+N</kbd> / <kbd>Ctrl+N</kbd> to create a new file</li>
         <li>Press <kbd>Cmd+S</kbd> / <kbd>Ctrl+S</kbd> to save</li>
         <li>Press <kbd>Cmd+Shift+S</kbd> / <kbd>Ctrl+Shift+S</kbd> to save as</li>
+        <li>Press <kbd>Cmd+P</kbd> / <kbd>Ctrl+P</kbd> to print; Markdown files print as rendered, in the light theme</li>
         <li>New files prompt for a save location on first save</li>
         <li>Unsaved changes are indicated with a dot on the tab</li>
         <li>You'll be prompted to save when closing a tab with unsaved changes</li>
@@ -265,6 +266,11 @@ const HelpContent: React.FC = () => (
             <td>Save As</td>
             <td><kbd>Cmd+Shift+S</kbd></td>
             <td><kbd>Ctrl+Shift+S</kbd></td>
+          </tr>
+          <tr>
+            <td>Print</td>
+            <td><kbd>Cmd+P</kbd></td>
+            <td><kbd>Ctrl+P</kbd></td>
           </tr>
           <tr>
             <td>Find</td>

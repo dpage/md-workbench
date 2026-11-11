@@ -307,6 +307,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('new-file', listener);
   },
 
+  onPrint: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('print', listener);
+    return () => ipcRenderer.removeListener('print', listener);
+  },
+
+  printDocument: () =>
+    ipcRenderer.invoke('print-document') as Promise<{ success: boolean; error?: string }>,
+
   // AI provider operations
   testAIConnection: (provider: AIProvider, options: AIOptions) =>
     ipcRenderer.invoke('test-ai-connection', provider, options) as Promise<AIConnectionStatus>,

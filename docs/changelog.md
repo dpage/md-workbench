@@ -4,6 +4,9 @@ All notable changes to Markdown Workbench will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Print**: Print the active document from File → Print... or with Cmd/Ctrl+P. Markdown files print as rendered (including Mermaid diagrams) in the light theme, whatever the current view mode; other files print as syntax-highlighted source.
+
 ## [1.0.0-alpha.6] - 2025-12-12
 
 ### Added

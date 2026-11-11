@@ -4809,3 +4809,76 @@ body {
   background-color: var(--accent-bg);
   color: var(--accent-primary);
 }
+
+/* Print View */
+
+/* Kept off-screen rather than hidden so Mermaid can measure its diagrams */
+.print-container {
+  position: absolute;
+  top: 0;
+  left: -100000px;
+  width: 800px;
+  color: var(--text-primary);
+}
+
+.print-container .markdown-viewer {
+  overflow: visible;
+  padding: 0;
+  background: none;
+}
+
+.print-container .markdown-content {
+  max-width: none;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+}
+
+.print-container .code-block-copy {
+  display: none;
+}
+
+.print-container .print-source {
+  position: static;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media print {
+  html,
+  body {
+    height: auto;
+    overflow: visible;
+    background: #fff;
+  }
+
+  #root {
+    display: none;
+  }
+
+  .print-container {
+    position: static;
+    width: auto;
+  }
+
+  .print-container img,
+  .print-container .mermaid-diagram {
+    break-inside: avoid;
+  }
+
+  .print-container h1,
+  .print-container h2,
+  .print-container h3,
+  .print-container h4,
+  .print-container h5,
+  .print-container h6 {
+    break-after: avoid;
+  }
+}
