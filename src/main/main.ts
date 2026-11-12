@@ -1052,7 +1052,16 @@ ipcMain.handle(
   'print-document',
   (event) =>
     new Promise<{ success: boolean; error?: string }>((resolve) => {
+      // Chromium fills the page margins with the window's background colour,
+      // which is dark to avoid a white flash on startup
+      const window = BrowserWindow.fromWebContents(event.sender);
+      const backgroundColor = window?.getBackgroundColor();
+      window?.setBackgroundColor('#ffffff');
+
       event.sender.print({ printBackground: true }, (success, failureReason) => {
+        if (window && backgroundColor && !window.isDestroyed()) {
+          window.setBackgroundColor(backgroundColor);
+        }
         resolve(success ? { success } : { success, error: failureReason });
       });
     })
