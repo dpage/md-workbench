@@ -4,8 +4,19 @@ All notable changes to Markdown Workbench will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-12
+
 ### Added
 - **Print**: Print the active document from File → Print... or with Cmd/Ctrl+P. Markdown files print as rendered (including Mermaid diagrams) in the light theme, whatever the current view mode; other files print as syntax-highlighted source.
+
+### Fixed
+- **Opening files from Finder**: A file opened from Finder (or another app) is now shown as the active tab even when it was already open in the restored session.
+- **Preview search in inline code**: Search now finds matches inside inline code in the preview.
+- **Chat selection**: The AI chat can now read the text selected in the editor or preview after focus has moved to the chat input.
+- **App Store build file access**: The AI key file, files reopened from the previous session, and Recent Files and Recent Folders now stay accessible after the app restarts. Any file that still cannot be reopened is named in a message rather than silently skipped.
+
+### Changed
+- **Updated dependencies**: Upgraded Electron from 27 to 45, along with React 19 and the rest of the application's dependencies.
 
 ## [1.0.0-alpha.6] - 2025-12-12
 
