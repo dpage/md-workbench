@@ -8,12 +8,19 @@ module.exports = {
   ],
   transform: {
     '^.+\\.(ts|tsx)$': 'ts-jest',
+    // ESM-only micromark/mdast packages, used unmocked by the maths
+    // tokeniser tests, are compiled to CommonJS.
+    '^.+\\.js$': ['ts-jest', { tsconfig: { allowJs: true } }],
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!(micromark|mdast-util-|unist-util-|decode-named-character-reference|character-entities|devlop|longest-streak|zwitch|ccount|markdown-table)).+\\.js$',
+  ],
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '^react-markdown$': '<rootDir>/src/test/__mocks__/react-markdown.tsx',
     '^remark-gfm$': '<rootDir>/src/test/__mocks__/remark-gfm.ts',
-    '^remark-math$': '<rootDir>/src/test/__mocks__/remark-math.ts',
+    '^../plugins/remarkMathPandoc$':
+      '<rootDir>/src/test/__mocks__/remarkMathPandoc.ts',
     '^remark-emoji$': '<rootDir>/src/test/__mocks__/remark-emoji.ts',
     '^rehype-raw$': '<rootDir>/src/test/__mocks__/rehype-raw.ts',
     '^rehype-katex$': '<rootDir>/src/test/__mocks__/rehype-katex.ts',

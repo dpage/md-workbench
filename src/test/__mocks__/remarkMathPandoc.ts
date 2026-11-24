@@ -7,6 +7,6 @@
 // See LICENSE.md for details.
 //
 
-// Mock for remark-math plugin
-const remarkMath = () => {};
-export default remarkMath;
+// Mock for the remarkMathPandoc plugin
+const remarkMathPandoc = () => {};
+export default remarkMathPandoc;

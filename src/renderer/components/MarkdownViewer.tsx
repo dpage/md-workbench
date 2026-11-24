@@ -17,7 +17,7 @@ import React, {
 } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
+import remarkMathPandoc from '../plugins/remarkMathPandoc';
 import remarkEmoji from 'remark-emoji';
 import rehypeRaw from 'rehype-raw';
 import rehypeKatex from 'rehype-katex';
@@ -1390,7 +1390,7 @@ const MarkdownViewer: React.FC<MarkdownViewerProps> = React.memo(({
         <ReactMarkdown
           remarkPlugins={[
             remarkGfm,
-            remarkMath,
+            remarkMathPandoc,
             remarkEmoji,
             remarkAdmonitions,
           ]}

@@ -46,6 +46,7 @@
     "identity-obj-proxy": "^3.0.0",
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.5.2",
+    "mdast-util-from-markdown": "^2.1.0",
     "png-to-ico": "^3.0.2",
     "sharp": "^0.35.5",
     "style-loader": "^4.0.0",
@@ -64,8 +65,10 @@
     "js-yaml": "^5.5.0",
     "json-stringify-pretty-compact": "^4.0.0",
     "katex": "^0.19.1",
+    "mdast-util-math": "^3.0.0",
     "mdworkbench-bookmarks": "file:native/bookmarks",
     "mermaid": "^12.3.0",
+    "micromark-extension-math": "^3.1.0",
     "prettier": "^3.10.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -75,7 +78,6 @@
     "rehype-raw": "^7.0.0",
     "remark-emoji": "^5.0.2",
     "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0",
     "sql-formatter": "^15.9.0"
   },
   "keywords": [
